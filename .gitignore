@@ -1,0 +1,8 @@
+/bin/
+/tmp/
+/runs/
+/reports/
+boku.yaml
+*.test
+*.out
+.DS_Store

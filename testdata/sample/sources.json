@@ -1,0 +1,6 @@
+[
+  {"id":"S001","url":"https://example.com/annual-report-2025","title":"Northwind Logistics Annual Report 2025 (fictional)","publisher":"Northwind Logistics","published_at":"2026-03-02T00:00:00Z","accessed_at":"2026-09-23T00:00:00Z","source_type":"company filing","tier":1},
+  {"id":"S002","url":"https://example.org/engineering/platform-migration","title":"Moving our dispatch platform to Kubernetes (fictional)","publisher":"Northwind Engineering Blog","published_at":"2025-11-18T00:00:00Z","accessed_at":"2026-09-23T00:00:00Z","source_type":"engineering blog","tier":1},
+  {"id":"S003","url":"https://example.net/survey-2026","title":"State of Platform Engineering Survey 2026 (fictional)","publisher":"Example Research Group","published_at":"2026-05-20T00:00:00Z","accessed_at":"2026-09-23T00:00:00Z","source_type":"industry survey","tier":2},
+  {"id":"S004","url":"https://example.com/investor-day-2024","title":"Investor Day presentation 2024 (fictional)","publisher":"Northwind Logistics","published_at":"2024-06-11T00:00:00Z","accessed_at":"2026-09-23T00:00:00Z","source_type":"company presentation","tier":1}
+]

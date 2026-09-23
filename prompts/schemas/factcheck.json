@@ -1,0 +1,250 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "needs_revision",
+        "fail"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "finding_id": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "supported",
+              "weak",
+              "unsupported",
+              "contradicted",
+              "outdated"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "verdict",
+          "note"
+        ]
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "major",
+              "minor"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "unsupported",
+              "fabricated",
+              "outdated",
+              "contradiction",
+              "missing_citation",
+              "weak_source",
+              "mislabelled",
+              "calculation",
+              "misleading",
+              "gap"
+            ]
+          },
+          "finding_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "type",
+          "description"
+        ]
+      }
+    },
+    "claims_to_verify": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "corrections": {
+      "type": "object",
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claim": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "string"
+              },
+              "source_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "confidence": {
+                "type": "number"
+              },
+              "as_of": {
+                "type": "string",
+                "description": "date or period the claim describes: YYYY-MM-DD, YYYY-MM, YYYY, Q1 2026, FY2025"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reported",
+                  "estimated",
+                  "derived",
+                  "inference"
+                ]
+              },
+              "topic": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "claim",
+              "evidence",
+              "source_refs",
+              "confidence",
+              "as_of",
+              "kind"
+            ]
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string",
+                "description": "short local id, e.g. s1"
+              },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "publisher": {
+                "type": "string"
+              },
+              "published_at": {
+                "type": "string",
+                "description": "YYYY-MM-DD, YYYY-MM or YYYY; empty if unknown"
+              },
+              "source_type": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4
+                ]
+              }
+            },
+            "required": [
+              "ref",
+              "url",
+              "title",
+              "tier"
+            ]
+          }
+        }
+      }
+    },
+    "recommended_research": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "market",
+              "technical",
+              "financial",
+              "competitive",
+              "case-study"
+            ]
+          },
+          "objective": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "finding_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "role",
+          "objective",
+          "questions"
+        ]
+      }
+    }
+  },
+  "required": [
+    "status",
+    "summary",
+    "verdicts",
+    "issues",
+    "recommended_research"
+  ]
+}

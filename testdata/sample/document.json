@@ -1,0 +1,56 @@
+{
+  "title": "Platform Modernisation at Northwind Logistics",
+  "subtitle": "A fictional sample case study used to test Boku's report layout, charts, diagrams and citations",
+  "report_type": "Technology Case Study",
+  "executive_summary": [
+    "Northwind Logistics, a fictional carrier used here as test data, completed most of a migration of its dispatch platform to Kubernetes by the end of 2025, with 85% of dispatch services running on the new platform [F001]. The programme is best read as a cost and delivery-speed initiative rather than a technology refresh.",
+    "Unit infrastructure cost fell from $0.42 to $0.31 per shipment over two years [F002], and deployment frequency rose roughly fourfold [F004]. The deployment figure is derived from company-reported counts and rests on a single source, so it should be treated as indicative.",
+    "Management's savings target of about $18 million by 2027 is an estimate made in 2024 [F005]; no later confirmation was found."
+  ],
+  "key_findings": [
+    {"headline": "The migration is largely complete", "detail": "85% of dispatch services ran on Kubernetes by December 2025 [F001]."},
+    {"headline": "Unit costs fell by about a quarter", "detail": "Infrastructure cost per shipment declined from $0.42 in 2023 to $0.31 in 2025 [F002]."},
+    {"headline": "The industry is moving the same way", "detail": "61% of surveyed platform teams run production AI inference on Kubernetes [F003]."}
+  ],
+  "sections": [
+    {"title": "Context and approach", "blocks": [
+      {"type": "paragraph", "text": "Northwind's dispatch system coordinated routing, carrier assignment and customer notifications. The company chose an incremental, service-by-service migration rather than a single cut-over [F001]."},
+      {"type": "diagram", "diagram": {"kind": "architecture", "title": "Target dispatch platform (simplified)", "nodes": [
+        {"id":"api","label":"Public API gateway","group":"Edge"},
+        {"id":"dispatch","label":"Dispatch services","group":"Kubernetes"},
+        {"id":"routing","label":"Route optimisation","group":"Kubernetes"},
+        {"id":"notify","label":"Notification workers","group":"Kubernetes"},
+        {"id":"db","label":"Operational database","group":"Managed data"},
+        {"id":"queue","label":"Event stream","group":"Managed data"}
+      ], "edges": [
+        {"from":"api","to":"dispatch"},{"from":"dispatch","to":"routing"},{"from":"dispatch","to":"queue","label":"events"},
+        {"from":"queue","to":"notify"},{"from":"dispatch","to":"db"}
+      ]}, "finding_ids": ["F001"]},
+      {"type": "callout", "tone": "insight", "text": "Incremental migration let the team keep the legacy system as a fallback throughout, which **reduced cut-over risk** at the cost of running two platforms for most of 2025 [F001]."}
+    ]},
+    {"title": "Results", "blocks": [
+      {"type": "paragraph", "text": "Reported cost per shipment declined each year of the programme [F002]."},
+      {"type": "chart", "chart": {"kind": "column", "title": "Infrastructure cost per shipment", "units": "US dollars per shipment", "labels": ["2023","2024","2025"], "series": [{"name":"Cost per shipment","values":[0.42,0.37,0.31]}]}, "finding_ids": ["F002"], "as_of": "FY2025"},
+      {"type": "table", "title": "Outcome summary", "columns": ["Measure","Before","After","Evidence status"], "rows": [
+        ["Cost per shipment","$0.42 (2023)","$0.31 (2025)","Reported [F002]"],
+        ["Deploys per week","12","49","Derived, single source [F004]"],
+        ["Savings by 2027","—","≈$18M","Estimate made in 2024 [F005]"]
+      ], "finding_ids": ["F002","F004","F005"]},
+      {"type": "callout", "tone": "caution", "text": "The $18 million savings figure is management guidance from 2024, not a reported result [F005]."}
+    ]},
+    {"title": "Industry context", "blocks": [
+      {"type": "paragraph", "text": "Northwind's direction matches the wider market: a 2026 survey found that most platform teams now run AI inference on Kubernetes [F003]."},
+      {"type": "chart", "chart": {"kind": "bar", "title": "AI workloads run on Kubernetes", "units": "% of surveyed organisations (n = 1,240)", "labels": ["Production inference","Model training","GPU sharing"], "series": [{"name":"Share","values":[61,38,22]}]}, "finding_ids": ["F003"], "as_of": "2026-04"},
+      {"type": "subheading", "text": "Programme timeline"},
+      {"type": "diagram", "diagram": {"kind": "timeline", "title": "Migration milestones", "nodes": [
+        {"id":"a","label":"Investor day sets savings target","detail":"Jun 2024"},
+        {"id":"b","label":"First services migrated","detail":"2024"},
+        {"id":"c","label":"85% of services migrated","detail":"Dec 2025"},
+        {"id":"d","label":"Savings target date","detail":"2027"}
+      ]}, "finding_ids": ["F001","F005"]}
+    ]}
+  ],
+  "conclusion": [
+    "The evidence supports a clear story: the migration is largely complete and unit costs have fallen [F001, F002]. What remains unproven is whether the 2027 savings estimate will be met [F005]."
+  ]
+}

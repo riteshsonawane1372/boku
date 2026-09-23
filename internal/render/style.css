@@ -1,0 +1,364 @@
+/* Boku report stylesheet. Print-first: sized in pt/mm for Chrome's PDF engine. */
+
+:root {
+  --ink: #161b26;
+  --body: #262c38;
+  --muted: #5d6677;
+  --faint: #8a92a0;
+  --rule: #d5d9e0;
+  --rule-strong: #161b26;
+  --tint: #f2f4f7;
+  --accent: #0d3b66;
+  --accent-soft: #e7eef6;
+  --caution: #9a6412;
+  --caution-soft: #fbf4e7;
+  --serif: "Charter", "Bitstream Charter", "Sitka Text", "Iowan Old Style", Cambria, Georgia, serif;
+  --sans: "Helvetica Neue", "Inter", "Segoe UI", "Liberation Sans", Arial, sans-serif;
+  --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+}
+
+@page {
+  margin: 24mm 20mm 22mm 22mm;
+  @top-left {
+    font: 500 7pt "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a92a0;
+    vertical-align: bottom;
+    padding-bottom: 5mm;
+  }
+  @top-right {
+    font: 500 7pt "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a92a0;
+    vertical-align: bottom;
+    padding-bottom: 5mm;
+  }
+  @bottom-right {
+    content: counter(page);
+    font: 600 8pt "Helvetica Neue", Arial, sans-serif;
+    color: #161b26;
+    vertical-align: top;
+    padding-top: 5mm;
+  }
+  @bottom-left {
+    font: 400 7pt "Helvetica Neue", Arial, sans-serif;
+    color: #8a92a0;
+    vertical-align: top;
+    padding-top: 5mm;
+  }
+}
+
+@page cover {
+  margin: 0;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-right { content: none; }
+  @bottom-left { content: none; }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-family: var(--serif);
+  font-size: 10.2pt;
+  line-height: 1.55;
+  color: var(--body);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  font-kerning: normal;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+}
+
+body { margin: 0; background: #fff; }
+
+a { color: inherit; text-decoration: none; }
+
+h1, h2, h3, .sans {
+  font-family: var(--sans);
+  color: var(--ink);
+  font-variant-numeric: lining-nums;
+}
+
+p { margin: 0 0 0.75em; orphans: 3; widows: 3; hyphens: auto; }
+
+strong { color: var(--ink); font-weight: 700; }
+
+/* Page size, cover height and running header/footer text are injected by
+   the HTML renderer because they depend on the report. */
+
+/* ── Cover ─────────────────────────────────────────────── */
+
+.cover {
+  page: cover;
+  width: 100%;
+  padding: 30mm 22mm 24mm 26mm;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  break-after: page;
+  overflow: hidden;
+}
+
+.cover::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 7mm;
+  background: var(--accent);
+}
+
+.cover .kicker {
+  font: 600 8pt var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.cover .rule { width: 18mm; height: 1.4pt; background: var(--ink); margin: 7mm 0 9mm; }
+
+.cover h1 {
+  font: 600 30pt/1.1 var(--sans);
+  letter-spacing: -0.015em;
+  margin: 0;
+  max-width: 150mm;
+}
+
+.cover .subtitle {
+  font: 400 14.5pt/1.4 var(--serif);
+  color: var(--muted);
+  margin-top: 7mm;
+  max-width: 140mm;
+}
+
+.cover .spacer { flex: 1; }
+
+.cover .meta {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  column-gap: 14mm;
+  row-gap: 5mm;
+  border-top: 0.6pt solid var(--rule);
+  padding-top: 6mm;
+}
+
+.cover .meta div { font: 400 8.5pt/1.4 var(--sans); color: var(--ink); }
+.cover .meta span {
+  display: block;
+  font: 600 6.8pt var(--sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 1.2mm;
+}
+
+.cover .disclaimer {
+  margin-top: 8mm;
+  font: 400 7pt/1.5 var(--sans);
+  color: var(--faint);
+  max-width: 150mm;
+}
+
+/* ── Contents ─────────────────────────────────────────── */
+
+.toc { break-after: page; }
+.toc ol { list-style: none; padding: 0; margin: 6mm 0 0; }
+.toc li {
+  display: flex;
+  gap: 6mm;
+  padding: 2.4mm 0;
+  border-bottom: 0.5pt solid var(--rule);
+  font: 400 10pt var(--sans);
+  color: var(--ink);
+}
+.toc li .n { width: 10mm; color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.toc li.minor { color: var(--muted); font-size: 9pt; }
+
+/* ── Chapters ─────────────────────────────────────────── */
+
+.chapter { break-before: page; }
+.chapter.continues { break-before: auto; margin-top: 12mm; }
+
+.eyebrow {
+  font: 600 7.8pt var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 3mm;
+  font-variant-numeric: lining-nums;
+}
+
+.chapter > h1, .toc > h1 {
+  font-size: 21pt;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 4mm;
+  max-width: 150mm;
+}
+
+.chapter > h1::after, .toc > h1::after {
+  content: "";
+  display: block;
+  width: 14mm;
+  height: 1.4pt;
+  background: var(--accent);
+  margin-top: 5mm;
+}
+
+.chapter > h1 + * { margin-top: 7mm; }
+
+h2 {
+  font-size: 11.5pt;
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 1.6em 0 0.55em;
+  break-after: avoid;
+}
+
+.lead p:first-child {
+  font-size: 12pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+ul.bullets { margin: 0 0 0.9em; padding-left: 0; list-style: none; }
+ul.bullets li { position: relative; padding-left: 5mm; margin-bottom: 0.35em; }
+ul.bullets li::before {
+  content: "";
+  position: absolute;
+  left: 0.6mm;
+  top: 0.62em;
+  width: 1.6mm;
+  height: 1.6mm;
+  background: var(--accent);
+}
+
+/* ── Key findings ─────────────────────────────────────── */
+
+.findings { list-style: none; padding: 0; margin: 0; }
+.findings li {
+  display: grid;
+  grid-template-columns: 16mm 1fr;
+  padding: 4.2mm 0;
+  border-top: 0.5pt solid var(--rule);
+  break-inside: avoid;
+}
+.findings li:first-child { border-top: 1.2pt solid var(--rule-strong); }
+.findings .num {
+  font: 600 17pt/1 var(--sans);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.findings h3 { font-size: 10.8pt; font-weight: 650; line-height: 1.35; margin: 0 0 1.5mm; }
+.findings p { margin: 0; color: var(--body); }
+
+/* ── Citations ────────────────────────────────────────── */
+
+sup.cite {
+  font: 600 6.3pt var(--sans);
+  color: var(--accent);
+  vertical-align: 0.5em;
+  line-height: 0;
+  margin-left: 0.4pt;
+  font-variant-numeric: lining-nums;
+}
+
+/* ── Callouts ─────────────────────────────────────────── */
+
+.callout {
+  background: var(--accent-soft);
+  border-left: 2.2pt solid var(--accent);
+  padding: 4mm 5mm 3mm;
+  margin: 1.2em 0 1.3em;
+  break-inside: avoid;
+}
+.callout .label {
+  font: 700 7pt var(--sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5mm;
+}
+.callout p { margin-bottom: 0.5em; color: var(--ink); }
+.callout.caution { background: var(--caution-soft); border-color: var(--caution); }
+.callout.caution .label { color: var(--caution); }
+.callout.estimate, .callout.note { background: var(--tint); border-color: var(--muted); }
+.callout.estimate .label, .callout.note .label { color: var(--muted); }
+
+/* ── Tables and figures ───────────────────────────────── */
+
+figure { margin: 1.4em 0 1.6em; break-inside: avoid; }
+figure.table { break-inside: auto; }
+
+figcaption, .caption {
+  font: 650 8.4pt/1.35 var(--sans);
+  color: var(--ink);
+  margin-bottom: 2.5mm;
+  break-after: avoid;
+}
+figcaption .label, .caption .label { color: var(--accent); margin-right: 1.5mm; }
+figcaption .units { display: block; font-weight: 400; color: var(--muted); margin-top: 0.6mm; }
+
+.source-line {
+  font: 400 7pt/1.4 var(--sans);
+  color: var(--muted);
+  margin-top: 2mm;
+  font-variant-numeric: lining-nums;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 8.2pt/1.4 var(--sans);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+thead { display: table-header-group; }
+th {
+  text-align: left;
+  font-weight: 650;
+  font-size: 7pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1pt solid var(--rule-strong);
+  padding: 0 3mm 1.8mm 0;
+  vertical-align: bottom;
+}
+td {
+  border-bottom: 0.5pt solid var(--rule);
+  padding: 1.9mm 3mm 1.9mm 0;
+  vertical-align: top;
+}
+tr { break-inside: avoid; }
+td:first-child { font-weight: 600; }
+table.register td:first-child { font-weight: 400; color: var(--muted); white-space: nowrap; }
+table.register td:nth-child(4), table.register td:nth-child(5) { white-space: nowrap; }
+td sup.cite { font-size: 6pt; }
+
+svg.chart, svg.diagram { width: 100%; height: auto; display: block; }
+svg text { font-family: var(--sans); font-variant-numeric: lining-nums tabular-nums; }
+
+/* ── Sources ──────────────────────────────────────────── */
+
+ol.sources { list-style: none; padding: 0; margin: 0; }
+ol.sources li {
+  display: grid;
+  grid-template-columns: 10mm 1fr;
+  padding: 2.2mm 0;
+  border-bottom: 0.5pt solid var(--rule);
+  break-inside: avoid;
+  font: 400 8pt/1.45 var(--sans);
+  color: var(--body);
+}
+ol.sources .n { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums lining-nums; }
+ol.sources .title { font-weight: 600; color: var(--ink); }
+ol.sources .meta { color: var(--muted); }
+ol.sources .url { font: 400 7pt var(--mono); color: var(--muted); word-break: break-all; }
+
+.appendix-letter { font-variant-numeric: lining-nums; }
+
+.small { font-size: 8.5pt; color: var(--muted); }

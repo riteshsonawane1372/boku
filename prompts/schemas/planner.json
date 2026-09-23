@@ -1,0 +1,104 @@
+{
+  "type": "object",
+  "properties": {
+    "objective": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "report_type": {
+      "type": "string"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "time_sensitivity": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "research_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "workstreams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "kebab-case"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "market",
+              "technical",
+              "financial",
+              "competitive",
+              "case-study"
+            ]
+          },
+          "objective": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority_sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "objective",
+          "questions"
+        ]
+      }
+    },
+    "required_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deliverables": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report_outline": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "objective",
+    "title",
+    "report_type",
+    "research_questions",
+    "workstreams",
+    "report_outline"
+  ]
+}

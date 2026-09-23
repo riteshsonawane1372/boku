@@ -1,0 +1,21 @@
+# A technical case study that leans on engineering blogs and documentation.
+#   boku report "How a company migrated from Elasticsearch to OpenSearch" \
+#     --config examples/technology-case-study.yaml
+agents:
+  max_parallel: 3
+  max_agents: 4
+  max_cost_usd: 20
+
+research:
+  depth: standard
+  freshness_days: 730      # engineering write-ups stay relevant longer
+  sources:
+    - engineering blogs of the companies involved
+    - conference talks and slides
+    - official migration guides and release notes
+
+report:
+  formats: [pdf, md]
+  diagrams: true           # architecture diagrams from documented components
+  charts: true
+  page_size: Letter

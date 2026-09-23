@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="{{.Metadata.Generator}}">
+<title>{{.Metadata.Title}}</title>
+<style>
+{{css}}
+{{pagecss .Metadata}}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="kicker">{{.Metadata.ReportType}}</div>
+  <div class="rule"></div>
+  <h1>{{.Metadata.Title}}</h1>
+  {{with .Metadata.Subtitle}}<div class="subtitle">{{.}}</div>{{end}}
+  <div class="spacer"></div>
+  <div class="meta">
+    <div><span>Published</span>{{month .Metadata.Date}}</div>
+    <div><span>Evidence base</span>{{len .Sources}} cited sources</div>
+    <div><span>Prepared by</span>{{if .Metadata.Author}}{{.Metadata.Author}}{{else}}Boku research agents{{end}}</div>
+  </div>
+  <div class="disclaimer">Research question: “{{.Metadata.Topic}}”. Compiled from public sources by an automated multi-agent research pipeline with independent fact-checking. Claims are cited to their sources; dated, estimated and derived figures are labelled in the evidence register. Verify material facts before relying on them.</div>
+</section>
+
+<nav class="toc">
+  <div class="eyebrow">Contents</div>
+  <h1>In this report</h1>
+  <ol>
+    <li><span class="n"></span><a href="#executive-summary">Executive summary</a></li>
+    {{if .KeyFindings}}<li><span class="n"></span><a href="#key-findings">Key findings</a></li>{{end}}
+    {{range .Sections}}<li><span class="n">{{two .Number}}</span><a href="#section-{{.Number}}">{{.Title}}</a></li>
+    {{end}}
+    {{if .Conclusion}}<li><span class="n"></span><a href="#conclusion">Conclusion</a></li>{{end}}
+    <li><span class="n"></span><a href="#sources">Sources</a></li>
+    {{range $i, $a := .Appendices}}<li class="minor"><span class="n">{{letter $i}}</span><a href="#appendix-{{letter $i}}">{{$a.Title}}</a></li>
+    {{end}}
+  </ol>
+</nav>
+
+<section class="chapter" id="executive-summary">
+  <div class="eyebrow">Executive summary</div>
+  <h1>{{.Metadata.Title}}</h1>
+  <div class="lead">
+  {{range .ExecutiveSummary}}<p>{{inline .Text}}</p>
+  {{end}}
+  </div>
+</section>
+
+{{if .KeyFindings}}
+<section class="chapter" id="key-findings">
+  <div class="eyebrow">Key findings</div>
+  <h1>What the evidence shows</h1>
+  <ol class="findings">
+  {{range $i, $k := .KeyFindings}}
+    <li><div class="num">{{two (add $i 1)}}</div><div><h3>{{inline $k.Headline}}</h3>{{with $k.Detail}}<p>{{inline .}}</p>{{end}}</div></li>
+  {{end}}
+  </ol>
+</section>
+{{end}}
+
+{{range .Sections}}
+<section class="chapter" id="section-{{.Number}}">
+  <div class="eyebrow">{{two .Number}} —</div>
+  <h1>{{.Title}}</h1>
+  {{template "blocks" .Blocks}}
+</section>
+{{end}}
+
+{{if .Conclusion}}
+<section class="chapter" id="conclusion">
+  <div class="eyebrow">Conclusion</div>
+  <h1>Conclusion</h1>
+  {{range .Conclusion}}<p>{{inline .Text}}</p>
+  {{end}}
+</section>
+{{end}}
+
+<section class="chapter" id="sources">
+  <div class="eyebrow">References</div>
+  <h1>Sources</h1>
+  <ol class="sources">
+  {{range .Sources}}
+    <li id="src-{{.Number}}">
+      <div class="n">[{{.Number}}]</div>
+      <div>
+        <div class="title">{{.Title}}</div>
+        <div class="meta">{{with .Publisher}}{{.}} · {{end}}{{with date .Published}}Published {{.}} · {{end}}Accessed {{day .Accessed}} · {{.TierLabel}}</div>
+        <div class="url"><a href="{{.URL}}">{{.URL}}</a></div>
+      </div>
+    </li>
+  {{end}}
+  </ol>
+</section>
+
+{{range $i, $a := .Appendices}}
+<section class="chapter" id="appendix-{{letter $i}}">
+  <div class="eyebrow">Appendix {{letter $i}}</div>
+  <h1>{{$a.Title}}</h1>
+  {{template "blocks" $a.Blocks}}
+</section>
+{{end}}
+
+</body>
+</html>
+
+{{define "blocks"}}
+{{range .}}
+  {{if eq .Type "subheading"}}<h2>{{.Text}}</h2>
+  {{else if eq .Type "paragraph"}}<p>{{inline .Text}}</p>
+  {{else if eq .Type "bullets"}}<ul class="bullets">{{range .Items}}<li>{{inline .}}</li>{{end}}</ul>
+  {{else if eq .Type "callout"}}<aside class="callout {{.Tone}}"><div class="label">{{calloutLabel .}}</div><p>{{inline .Text}}</p></aside>
+  {{else if eq .Type "table"}}
+  <figure class="table">
+    <div class="caption"><span class="label">Table {{.Number}}</span>{{.Title}}</div>
+    <table{{if eq .Title "Cited findings"}} class="register"{{end}}>
+      <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+      <tbody>{{range .Rows}}<tr>{{range .}}<td>{{inline .}}</td>{{end}}</tr>{{end}}</tbody>
+    </table>
+    {{with sources .}}<div class="source-line">{{.}}</div>{{end}}
+  </figure>
+  {{else if eq .Type "chart"}}
+  <figure class="chart">
+    <figcaption><span class="label">Figure {{.Number}}</span>{{.Chart.Title}}<span class="units">{{.Chart.Units}}</span></figcaption>
+    {{chart .}}
+    <div class="source-line">{{sources .}}</div>
+  </figure>
+  {{else if eq .Type "diagram"}}
+  <figure class="diagram">
+    <figcaption><span class="label">Figure {{.Number}}</span>{{.Diagram.Title}}</figcaption>
+    {{diagram .}}
+    {{with sources .}}<div class="source-line">{{.}}</div>{{end}}
+  </figure>
+  {{end}}
+{{end}}
+{{end}}

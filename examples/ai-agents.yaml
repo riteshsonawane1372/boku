@@ -1,0 +1,24 @@
+# A deep, current market report on a fast-moving topic.
+#   boku report "How enterprises are deploying AI agents in 2026" --config examples/ai-agents.yaml
+agents:
+  max_parallel: 5
+  max_agents: 6
+  role_models:
+    editorial: opus        # strongest writer for the final report
+  max_cost_usd: 40
+
+research:
+  depth: deep
+  freshness_days: 180      # things older than six months are "historical"
+  max_iterations: 2
+  sources:
+    - company earnings calls and investor materials
+    - analyst surveys with published methodology
+    - official product documentation
+
+report:
+  formats: [pdf, html, md]
+  author: Platform Strategy Team
+
+output:
+  directory: ./reports
