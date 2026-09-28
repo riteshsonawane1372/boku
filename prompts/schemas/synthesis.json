@@ -101,6 +101,7 @@
           },
           "visuals": {
             "type": "array",
+            "description": "e.g. 'chart:line - revenue by year, USD bn (F003, F007)', 'table - ...', 'diagram:timeline - ...'",
             "items": {
               "type": "string"
             }

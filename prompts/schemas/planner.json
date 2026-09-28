@@ -82,6 +82,7 @@
     },
     "deliverables": {
       "type": "array",
+      "description": "planned exhibits, one per line: form and data, e.g. 'line chart: annual revenue FY2021-FY2025, USD bn'",
       "items": {
         "type": "string"
       }

@@ -42,7 +42,8 @@ func (o *Orchestrator) planBrief(st *state) string {
 	p := st.plan
 	return mustJSON(map[string]any{
 		"objective": p.Objective, "title": p.Title, "subtitle": p.Subtitle, "report_type": p.ReportType,
-		"audience": p.Audience, "research_questions": p.ResearchQuestions, "proposed_outline": p.ReportOutline,
+		"audience": p.Audience, "research_questions": p.ResearchQuestions, "deliverables": p.Deliverables,
+		"proposed_outline": p.ReportOutline,
 	})
 }
 
