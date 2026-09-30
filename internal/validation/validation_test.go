@@ -120,7 +120,7 @@ func TestEditorialGateCatchesProblems(t *testing.T) {
 	r, issues := report.Build(doc, s, report.Metadata{}, report.BuildOptions{})
 	g := EditorialGate(r, issues)
 	joined := strings.Join(append(g.Errors, g.Warnings...), "\n")
-	for _, want := range []string{"unknown finding F404", "executive summary cites no sources", "no key findings",
+	for _, want := range []string{"unknown finding F404", "executive summary cites no sources",
 		"body paragraphs cite evidence", "rapidly evolving", "delve", "repeated sentence"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("gate missed %q:\n%s", want, joined)

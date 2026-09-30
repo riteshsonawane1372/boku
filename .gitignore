@@ -6,3 +6,4 @@ boku.yaml
 *.test
 *.out
 .DS_Store
+/_site/

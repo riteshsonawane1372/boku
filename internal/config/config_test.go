@@ -39,7 +39,7 @@ report:
 	if cfg.ModelFor("editorial") != "opus" || cfg.ModelFor("planner") != "" {
 		t.Error("role model override wrong")
 	}
-	if cfg.MinSourcesFor() != 20 {
+	if cfg.MinSourcesFor() != 35 {
 		t.Errorf("deep min sources = %d", cfg.MinSourcesFor())
 	}
 }
@@ -50,6 +50,11 @@ func TestLoadRejectsUnknownAndInvalid(t *testing.T) {
 	_ = os.WriteFile(unknown, []byte("agents:\n  max_paralel: 2\n"), 0o644)
 	if _, err := Load(unknown); err == nil || !strings.Contains(err.Error(), "max_paralel") {
 		t.Errorf("typo not reported: %v", err)
+	}
+	custom := filepath.Join(dir, "c.yaml")
+	_ = os.WriteFile(custom, []byte("agents:\n  provider: openai\n"), 0o644)
+	if _, err := Load(custom); err == nil || !strings.Contains(err.Error(), "agents.model") || !strings.Contains(err.Error(), "endpoint") {
+		t.Errorf("openai provider without model/endpoint accepted: %v", err)
 	}
 	bad := filepath.Join(dir, "b.yaml")
 	_ = os.WriteFile(bad, []byte("agents:\n  provider: gpt\n  max_parallel: 0\nresearch:\n  depth: extreme\nreport:\n  formats: [docx]\n"), 0o644)
@@ -87,5 +92,25 @@ func TestExamplesAreValid(t *testing.T) {
 		if _, err := Load(p); err != nil {
 			t.Errorf("%s: %v", p, err)
 		}
+	}
+}
+
+func TestApplyMode(t *testing.T) {
+	cfg := Default()
+	cfg.ApplyMode(ModeQuick)
+	if cfg.Research.FactCheck || !cfg.IsLocalRole("editorial") || cfg.Report.Layout != "compact" || cfg.Research.Depth != DepthQuick {
+		t.Errorf("quick mode not applied: %+v", cfg)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	short := Default()
+	short.Report.Layout = "full"
+	short.ApplyMode(ModeShort)
+	if short.UsesLocal() || !short.Research.FactCheck || short.Report.Layout != "full" || short.Agents.MaxAgents != 3 {
+		t.Errorf("short mode wrong or overrode explicit layout: %+v", short)
+	}
+	if d := Default(); d.UsesLocal() || d.IsLocalRole("editorial") {
+		t.Error("default config must not route roles to the local model")
 	}
 }

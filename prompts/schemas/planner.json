@@ -87,6 +87,10 @@
         "type": "string"
       }
     },
+    "report_shape": {
+      "type": "string",
+      "description": "the form the request calls for, e.g. 'decision memo: recommendation first, options matrix, risks'"
+    },
     "report_outline": {
       "type": "array",
       "items": {

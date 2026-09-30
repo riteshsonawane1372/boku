@@ -157,7 +157,8 @@ func TestEmptySectionsOmittedAndNumbered(t *testing.T) {
 
 func TestGeneratedAppendices(t *testing.T) {
 	r, _ := Build(Document{ExecutiveSummary: []string{"x [F001]"}}, testStore(), Metadata{}, BuildOptions{
-		Method: &Method{Workstreams: []string{"primary"}, FactCheckRounds: 1, FactCheckStatus: "pass", FreshnessDays: 365, Limitations: []string{"Gap"}},
+		IncludeReferences: true,
+		Method:            &Method{Workstreams: []string{"primary"}, FactCheckRounds: 1, FactCheckStatus: "pass", FreshnessDays: 365, Limitations: []string{"Gap"}},
 	})
 	if len(r.Appendices) != 2 || r.Appendices[0].Title != "Methodology and evidence quality" || r.Appendices[1].Title != "Evidence register" {
 		t.Fatalf("appendices = %+v", r.Appendices)
@@ -166,6 +167,50 @@ func TestGeneratedAppendices(t *testing.T) {
 	if len(reg.Rows) != 1 || reg.Rows[0][0] != "F001" {
 		t.Errorf("register should list only cited findings: %v", reg.Rows)
 	}
+}
+
+func TestReferencesStayOutOfDocumentByDefault(t *testing.T) {
+	r, _ := Build(Document{ExecutiveSummary: []string{"x [F001]"}}, testStore(), Metadata{}, BuildOptions{})
+	for _, a := range r.Appendices {
+		if a.Title == "Evidence register" {
+			t.Error("evidence register rendered without IncludeReferences")
+		}
+	}
+	if len(r.Evidence) != 1 || r.Evidence[0].ID != "F001" || len(r.Sources) == 0 {
+		t.Errorf("evidence/sources must still be built for the references file: %+v", r.Evidence)
+	}
+}
+
+func TestLabelsAndLayout(t *testing.T) {
+	r, _ := Build(Document{SummaryTitle: "Verdict", ConclusionTitle: "Recommendation", Layout: "compact"}, testStore(), Metadata{}, BuildOptions{Layout: "auto"})
+	if r.Labels.Summary != "Verdict" || r.Labels.Conclusion != "Recommendation" || r.Labels.KeyFindings != "Key findings" || r.Layout != LayoutCompact {
+		t.Errorf("labels/layout: %+v %s", r.Labels, r.Layout)
+	}
+	r, _ = Build(Document{Layout: "compact"}, testStore(), Metadata{}, BuildOptions{Layout: "full"})
+	if r.Layout != LayoutFull {
+		t.Error("configured layout must win over the document's request")
+	}
+}
+
+func TestLenientDropsBadCitations(t *testing.T) {
+	doc := Document{ExecutiveSummary: []string{"x [F001, F999]"}}
+	_, issues := Build(doc, testStore(), Metadata{}, BuildOptions{})
+	if !hasError(issues) {
+		t.Error("strict build must error on unknown finding")
+	}
+	r, issues := Build(doc, testStore(), Metadata{}, BuildOptions{Lenient: true})
+	if hasError(issues) || !HasCitation(r.ExecutiveSummary[0].Text) {
+		t.Errorf("lenient build: %v", issues)
+	}
+}
+
+func hasError(is []Issue) bool {
+	for _, i := range is {
+		if i.Severity == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 func TestInlineEmphasis(t *testing.T) {
@@ -184,5 +229,23 @@ func TestInlineEmphasis(t *testing.T) {
 	want := "a |B:bold| and |I:it| but 5 * 3 stays"
 	if strings.Join(got, "|") != want {
 		t.Errorf("got %q want %q", strings.Join(got, "|"), want)
+	}
+}
+
+func TestAutoCite(t *testing.T) {
+	store := testStore()
+	claim := store.Finding("F001").Claim
+	doc := Document{
+		ExecutiveSummary: []string{claim + " Something entirely unrelated about weather patterns in distant oceans today."},
+		Sections:         []Section{{Title: "S", Blocks: []Block{{Type: BlockParagraph, Text: "Already cited [F001]."}}}},
+	}
+	if n := AutoCite(&doc, store, 0.7); n != 1 {
+		t.Fatalf("added %d citations: %q", n, doc.ExecutiveSummary[0])
+	}
+	if !strings.Contains(doc.ExecutiveSummary[0], "[F001].") || strings.Count(doc.ExecutiveSummary[0], "[F") != 1 {
+		t.Errorf("summary = %q", doc.ExecutiveSummary[0])
+	}
+	if doc.Sections[0].Blocks[0].Text != "Already cited [F001]." {
+		t.Error("cited text must be left alone")
 	}
 }

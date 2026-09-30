@@ -24,7 +24,7 @@ func (o *Orchestrator) stageReport(ctx context.Context, st *state) (string, erro
 	if st.docPath == "" {
 		st.docPath = latestDocument(st)
 	}
-	doc, err := readDocument(st, st.docPath)
+	doc, err := o.readDraft(st, st.docPath)
 	if err != nil {
 		return "", err
 	}
@@ -52,6 +52,18 @@ func (o *Orchestrator) stageReport(ctx context.Context, st *state) (string, erro
 // the PDF, and only then copies outputs to the output directory.
 func (o *Orchestrator) stageRender(ctx context.Context, st *state) (*Outcome, error) {
 	r := st.report
+	slug := run.Slug(r.Metadata.Title, 60)
+	outDir := o.Config.Output.Directory
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return nil, err
+	}
+	// References always go to a JSON file next to the report; the document
+	// names it so readers can resolve the numbered citations.
+	refsDst := uniquePath(filepath.Join(outDir, slug+".references.json"), st.run.Manifest())
+	r.Metadata.ReferencesFile = filepath.Base(refsDst)
+	if err := st.run.WriteFile("report/references.json", render.ReferencesJSON(r)); err != nil {
+		return nil, err
+	}
 	html, err := render.HTML(r)
 	if err != nil {
 		return nil, err
@@ -63,7 +75,6 @@ func (o *Orchestrator) stageRender(ctx context.Context, st *state) (*Outcome, er
 		return nil, err
 	}
 
-	slug := run.Slug(r.Metadata.Title, 60)
 	staged := map[string]string{} // format → path inside the run
 	for _, f := range o.Config.Report.Formats {
 		switch f {
@@ -93,10 +104,6 @@ func (o *Orchestrator) stageRender(ctx context.Context, st *state) (*Outcome, er
 		}
 	}
 
-	outDir := o.Config.Output.Directory
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return nil, err
-	}
 	out := &Outcome{RunDir: st.run.Dir}
 	published := map[string]string{}
 	for _, f := range o.Config.Report.Formats {
@@ -111,6 +118,11 @@ func (o *Orchestrator) stageRender(ctx context.Context, st *state) (*Outcome, er
 		published[f] = dst
 		out.Outputs = append(out.Outputs, dst)
 	}
+	if err := copyFile(st.run.Path("report", "references.json"), refsDst); err != nil {
+		return nil, fmt.Errorf("publish references: %w", err)
+	}
+	published["refs"] = refsDst
+	out.Outputs = append(out.Outputs, refsDst)
 	_ = st.run.Update(func(m *run.Manifest) { m.Outputs = published })
 	return out, nil
 }

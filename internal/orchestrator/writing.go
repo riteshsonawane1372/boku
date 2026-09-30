@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/riteshsonawane1372/boku/internal/agent"
+	"github.com/riteshsonawane1372/boku/internal/config"
 	"github.com/riteshsonawane1372/boku/internal/report"
 	"github.com/riteshsonawane1372/boku/internal/run"
 	"github.com/riteshsonawane1372/boku/internal/validation"
@@ -41,9 +42,11 @@ type Synthesis struct {
 func (o *Orchestrator) planBrief(st *state) string {
 	p := st.plan
 	return mustJSON(map[string]any{
-		"objective": p.Objective, "title": p.Title, "subtitle": p.Subtitle, "report_type": p.ReportType,
-		"audience": p.Audience, "research_questions": p.ResearchQuestions, "deliverables": p.Deliverables,
-		"proposed_outline": p.ReportOutline,
+		"original_request": st.run.Manifest().Topic,
+		"objective":        p.Objective, "title": p.Title, "subtitle": p.Subtitle, "report_type": p.ReportType,
+		"audience": p.Audience, "report_shape": p.ReportShape, "research_questions": p.ResearchQuestions,
+		"deliverables": p.Deliverables, "proposed_outline": p.ReportOutline,
+		"report_mode": o.Config.Report.Mode,
 	})
 }
 
@@ -96,19 +99,39 @@ func (o *Orchestrator) stageEditorial(ctx context.Context, st *state) (string, e
 			ID: "editorial", Role: agent.RoleEditorial, Stage: run.StageEditorial, Schema: "document",
 			Objective: "Write the complete report.",
 			Inputs:    toArtifacts([]agentArtifact{{"research plan", o.planBrief(st)}, {"synthesis", string(synJSON)}, {"research corpus", corpus}}),
-			Artifact:  rel,
+			Constraints: []string{
+				"Shape the report to the original request in the research plan: its wording decides the form, length and headings.",
+			},
+			Artifact: rel,
 		})
 		if err != nil {
 			return "", fmt.Errorf("editorial: %w", err)
 		}
 	}
+	evaluate := func(rel string) (report.Document, validation.Gate, []report.Issue, error) {
+		doc, err := o.readDraft(st, rel)
+		if err != nil {
+			return doc, validation.Gate{}, nil, err
+		}
+		r, issues := report.Build(doc, st.store, o.metadata(st, doc), o.buildOptions(st, syn))
+		return doc, validation.EditorialGate(r, issues), issues, nil
+	}
 	for rev := 1; ; rev++ {
-		doc, err := readDocument(st, rel)
+		doc, gate, issues, err := evaluate(rel)
 		if err != nil {
 			return "", err
 		}
-		r, issues := report.Build(doc, st.store, o.metadata(st, doc), o.buildOptions(st, syn))
-		gate := validation.EditorialGate(r, issues)
+		// Style-only problems are fixed by the local formatter first: it
+		// rewrites just the flagged passages and costs no provider tokens.
+		if validation.NeedsRevision(gate) && len(gate.Errors) == 0 && st.fmtRun != nil && !strings.HasSuffix(rel, polishedSuffix) {
+			polished := strings.TrimSuffix(rel, ".json") + polishedSuffix
+			if st.run.Exists(polished) || o.polish(ctx, st, doc, polished) == nil {
+				rel = polished
+				if doc, gate, issues, err = evaluate(rel); err != nil {
+					return "", err
+				}
+			}
+		}
 		if !validation.NeedsRevision(gate) {
 			st.docPath = rel
 			break
@@ -154,11 +177,36 @@ func readDocument(st *state, rel string) (report.Document, error) {
 	return doc, err
 }
 
-// latestDocument finds the newest editorial draft in the run.
+// autoCiteCover is how much of a sentence must appear in a finding for
+// AutoCite to cite it.
+const autoCiteCover = 0.7
+
+// readDraft reads an editorial draft. In quick mode, uncited sentences that
+// restate a finding get that finding's citation (small local models rarely
+// write citation markers themselves).
+func (o *Orchestrator) readDraft(st *state, rel string) (report.Document, error) {
+	doc, err := readDocument(st, rel)
+	if err != nil || o.Config.Report.Mode != config.ModeQuick {
+		return doc, err
+	}
+	if n := report.AutoCite(&doc, st.store, autoCiteCover); n > 0 {
+		if !st.autoCited {
+			o.Log.Info("citations matched to findings automatically", "draft", rel, "added", n)
+		}
+		st.autoCited = true
+	}
+	return doc, nil
+}
+
+// latestDocument finds the newest editorial draft in the run, preferring its
+// polished version when the formatter produced one.
 func latestDocument(st *state) string {
 	rel := "report/document.json"
 	for rev := 1; st.run.Exists(fmt.Sprintf("report/document-rev%d.json", rev)); rev++ {
 		rel = fmt.Sprintf("report/document-rev%d.json", rev)
+	}
+	if p := strings.TrimSuffix(rel, ".json") + polishedSuffix; st.run.Exists(p) {
+		return p
 	}
 	return rel
 }
@@ -173,6 +221,7 @@ func (o *Orchestrator) metadata(st *state, doc report.Document) report.Metadata 
 		Title: title, Subtitle: doc.Subtitle, ReportType: doc.ReportType, Topic: m.Topic,
 		Date: st.asOf, RunID: m.ID, Author: o.Config.Report.Author,
 		Generator: "Boku " + o.Version, PageSize: o.Config.Report.PageSize,
+		ReferencesFile: run.Slug(title, 60) + ".references.json",
 	}
 }
 
@@ -188,6 +237,9 @@ func (o *Orchestrator) buildOptions(st *state, syn Synthesis) report.BuildOption
 	for _, f := range st.failed {
 		limits = append(limits, fmt.Sprintf("The %s research workstream failed; its questions may be under-covered.", f))
 	}
+	if st.autoCited {
+		limits = append(limits, "Some citations were matched to findings automatically by text similarity, because the local model did not cite them itself.")
+	}
 	for i, g := range syn.Gaps {
 		if i == 6 {
 			break
@@ -200,6 +252,9 @@ func (o *Orchestrator) buildOptions(st *state, syn Synthesis) report.BuildOption
 	}
 	return report.BuildOptions{
 		Charts: o.Config.Report.Charts, Diagrams: o.Config.Report.Diagrams,
+		Layout: o.Config.Report.Layout, IncludeReferences: o.Config.Report.IncludeReferences,
+		// Small local models mis-cite more often; drop bad citations instead of blocking.
+		Lenient: o.Config.Report.Mode == config.ModeQuick,
 		Method: &report.Method{
 			Workstreams: uniqueStrings(ws), FactCheckRounds: rounds, FactCheckStatus: status,
 			FreshnessDays: o.Config.Research.FreshnessDays, Limitations: limits,

@@ -245,6 +245,24 @@
       "items": {
         "type": "string"
       }
+    },
+    "summary_title": {
+      "type": "string",
+      "description": "optional heading for the executive summary, e.g. 'The answer'"
+    },
+    "key_findings_title": {
+      "type": "string"
+    },
+    "conclusion_title": {
+      "type": "string",
+      "description": "optional heading for the conclusion, e.g. 'Recommendation'"
+    },
+    "layout": {
+      "type": "string",
+      "enum": [
+        "full",
+        "compact"
+      ]
     }
   },
   "required": [
@@ -252,8 +270,6 @@
     "subtitle",
     "report_type",
     "executive_summary",
-    "key_findings",
-    "sections",
-    "conclusion"
+    "sections"
   ]
 }

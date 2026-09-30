@@ -1,0 +1,30 @@
+# Run Boku on your own model instead of Claude Code.
+#
+#   boku report "How are banks deploying generative AI?" --config examples/custom-model.yaml
+#
+# Any OpenAI-compatible chat completions endpoint works: vLLM, SGLang,
+# LM Studio, llama.cpp server, OpenRouter, OpenAI, Together, Groq, …
+# These models have no web tools of their own, so Boku searches the web and
+# fetches pages itself (see `search`) and gives the text to the model as
+# numbered sources; findings can only cite pages Boku actually fetched.
+agents:
+  provider: openai
+  endpoint: http://localhost:8000/v1
+  model: Qwen/Qwen2.5-72B-Instruct
+  api_key_env: ""              # e.g. OPENROUTER_API_KEY; empty for a local server
+  price_input_per_mtok: 0      # set these to track spend on a paid endpoint
+  price_output_per_mtok: 0
+  max_parallel: 4
+  timeout: 30m
+
+search:
+  engine: duckduckgo           # or searxng with searxng_url
+  results_per_query: 5
+  max_pages: 12
+  page_chars: 5000
+
+research:
+  depth: standard
+
+report:
+  formats: [pdf, md]

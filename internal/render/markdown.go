@@ -19,12 +19,12 @@ func Markdown(r *report.Report) []byte {
 	}
 	fmt.Fprintf(&b, "%s · %s · Run `%s`\n\n", m.ReportType, m.Date.Format("January 2006"), m.RunID)
 
-	b.WriteString("## Executive summary\n\n")
+	fmt.Fprintf(&b, "## %s\n\n", r.Labels.Summary)
 	for _, p := range r.ExecutiveSummary {
 		b.WriteString(mdInline(p.Text) + "\n\n")
 	}
 	if len(r.KeyFindings) > 0 {
-		b.WriteString("## Key findings\n\n")
+		fmt.Fprintf(&b, "## %s\n\n", r.Labels.KeyFindings)
 		for i, k := range r.KeyFindings {
 			fmt.Fprintf(&b, "%d. **%s** %s\n", i+1, report.PlainText(k.Headline)+mdCites(k.Headline), mdInline(k.Detail))
 		}
@@ -35,13 +35,24 @@ func Markdown(r *report.Report) []byte {
 		mdBlocks(&b, s.Blocks)
 	}
 	if len(r.Conclusion) > 0 {
-		b.WriteString("## Conclusion\n\n")
+		fmt.Fprintf(&b, "## %s\n\n", r.Labels.Conclusion)
 		for _, p := range r.Conclusion {
 			b.WriteString(mdInline(p.Text) + "\n\n")
 		}
 	}
-	b.WriteString("## Sources\n\n")
+	if !r.IncludeReferences {
+		ref := r.Metadata.ReferencesFile
+		if ref == "" {
+			ref = "the run's references file"
+		}
+		fmt.Fprintf(&b, "---\n\n_Numbered citations refer to %d sources listed in %s._\n\n", len(r.Sources), ref)
+	} else {
+		b.WriteString("## Sources\n\n")
+	}
 	for _, c := range r.Sources {
+		if !r.IncludeReferences {
+			break
+		}
 		fmt.Fprintf(&b, "%d. %s", c.Number, c.Title)
 		if c.Publisher != "" {
 			fmt.Fprintf(&b, " — %s", c.Publisher)

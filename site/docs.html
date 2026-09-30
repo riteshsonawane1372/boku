@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boku Documentation</title>
+<meta name="description" content="Install Boku, run full, short and quick research reports, configure custom models and local Ollama, and understand the pipeline, references file and quality gates.">
+<link rel="canonical" href="https://boku.riteshsonawane.com/docs.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d3b66'/%3E%3Cpath d='M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z' fill='none' stroke='%237cc4ff' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Boku home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0d3b66"/><path d="M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z" fill="none" stroke="#7cc4ff" stroke-width="2.6" stroke-linejoin="round"/></svg>
+      Boku <span style="color:var(--faint);font-weight:500">docs</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="./#pipeline">How it works</a>
+      <a href="./#cost">Cost</a>
+      <button class="theme-toggle" type="button" aria-label="Toggle colour theme" data-theme-toggle>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="gh" href="https://github.com/riteshsonawane1372/boku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap docs">
+  <aside class="docs-nav" aria-label="Documentation">
+    <details open>
+      <summary>On this page</summary>
+      <div class="group">Start</div>
+      <a href="#overview">Overview</a>
+      <a href="#install">Install</a>
+      <a href="#quick-start">Quick start</a>
+      <div class="group">Using Boku</div>
+      <a href="#modes">Report modes</a>
+      <a href="#references">References file</a>
+      <a href="#report-shape">Report shape</a>
+      <a href="#commands">Commands and flags</a>
+      <a href="#run-directory">Run directory</a>
+      <div class="group">Models</div>
+      <a href="#custom-models">Custom models</a>
+      <a href="#local-model">Local model (Ollama)</a>
+      <a href="#web-search">Web search</a>
+      <div class="group">Reference</div>
+      <a href="#configuration">Configuration</a>
+      <a href="#pipeline">Pipeline and agents</a>
+      <a href="#sources">Source breadth</a>
+      <a href="#gates">Quality gates</a>
+      <a href="#cost">Cost</a>
+      <a href="#tuning">Tuning</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </details>
+  </aside>
+
+  <article class="prose">
+    <h1 id="overview">Boku documentation</h1>
+    <p class="lead">Boku is an open-source multi-agent research engine written in Go. It plans a research programme, runs specialised agents in parallel, keeps every claim linked to its sources, has an independent critic check the evidence, and renders a professional report as PDF, HTML and Markdown.</p>
+    <p>Agents supply content and data; Boku's own code does everything else — de-duplicating sources, resolving citations, checking that chart values appear in the evidence, and typesetting. By default agents run on <a href="https://docs.claude.com/claude-code">Claude Code</a>. With a config file they run on any OpenAI-compatible endpoint or a local Ollama model.</p>
+
+    <h2 id="install">Install</h2>
+    <p>Requirements:</p>
+    <ul>
+      <li>Go 1.25 or newer (to build)</li>
+      <li><a href="https://docs.claude.com/claude-code">Claude Code</a> installed and logged in (<code>claude</code> on your <code>PATH</code>) — the default runtime</li>
+      <li>Google Chrome, Chromium, Edge or Brave for PDF output</li>
+      <li>Optional: <a href="https://ollama.com">Ollama</a> with a small model for <code>--quick</code> and local formatting</li>
+    </ul>
+<pre>go install github.com/riteshsonawane1372/boku/cmd/boku@latest
+boku doctor</pre>
+    <p>or from source:</p>
+<pre>git clone https://github.com/riteshsonawane1372/boku
+cd boku
+make build        <span class="c"># ./bin/boku</span></pre>
+    <p><code>boku doctor</code> checks each piece:</p>
+<pre>  ✓ config       ok
+  ✓ claude code  2.1.285 (Claude Code)
+  ✓ ollama       llama3.1:8b at http://localhost:11434 (--quick and local formatting available)
+  ✓ chrome       /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+  ✓ prompts      ok</pre>
+
+    <h2 id="quick-start">Quick start</h2>
+<pre><span class="c"># Full report (default)</span>
+boku report "How enterprises are deploying AI agents in 2026"
+
+<span class="c"># A short search report: a cited brief of a few pages</span>
+boku report "Is Postgres 18 async I/O worth enabling?" --short
+
+<span class="c"># Quick report on your local Ollama model: no Claude Code tokens</span>
+boku report "Main approaches to GPU sharing on Kubernetes" --quick
+
+<span class="c"># Put the numbered source list inside the PDF too</span>
+boku report "…" --save-ref
+
+<span class="c"># Your own model instead of Claude Code</span>
+boku report "…" --config config.yaml</pre>
+    <p>Every run writes a directory under <code>runs/</code>; published files go to <code>reports/</code>. Interrupted runs continue with <code>boku resume &lt;run-dir&gt;</code>.</p>
+
+    <h2 id="modes">Report modes</h2>
+    <p>You never need a flag for the default. Pick another mode per report:</p>
+    <table>
+      <thead><tr><th>Mode</th><th>Flag</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><b>Full</b></td><td>none (or <code>--mode full</code>)</td><td>Planner, up to 6 research workstreams, fact-check with follow-up research rounds, synthesis, editorial revision. Full layout: cover, contents, sections, methodology.</td></tr>
+        <tr><td><b>Short</b></td><td><code>--short</code> (<code>--mode short</code>)</td><td>Quick depth, at most 3 workstreams, one fact-check round without follow-ups, and a brief of 2–4 sections in the compact layout (title block, no cover or contents).</td></tr>
+        <tr><td><b>Quick</b></td><td><code>--quick</code> (<code>--mode quick</code>)</td><td>Every role on the local Ollama model; Boku does the web search itself; fact-checking is skipped; compact layout. Spends no Claude Code tokens.</td></tr>
+      </tbody>
+    </table>
+    <p>Modes set defaults; explicit flags still win. <code>--short --agents 4</code> keeps four workstreams, <code>--quick --local-model qwen2.5:14b</code> uses a bigger local model.</p>
+    <div class="callout warn"><p><b>Quick reports are a first pass.</b> A small local model reads fewer pages and nothing checks its claims. Boku still refuses sources it did not fetch and drops citations to unknown findings, and the methodology appendix says the report was not fact-checked. Use <code>--short</code> or the default when accuracy matters.</p></div>
+
+    <h2 id="references">References file</h2>
+    <p>Citations in the report are numbers: <code>… grew 34% in 2025.<sup>3</sup></code>. The sources behind those numbers are always written next to the report as compact JSON, one entry per line:</p>
+<pre>reports/
+  kubernetes-platform-ai-infrastructure.pdf
+  kubernetes-platform-ai-infrastructure.references.json</pre>
+<pre>{"title":"Kubernetes as the Platform for AI Infrastructure","topic":"…","run_id":"…","date":"2026-09-23",
+"references":[
+{"n":1,"title":"…","publisher":"CNCF","url":"https://…","published":"2026-01-20","accessed":"2026-09-23","tier":1},
+…
+],
+"evidence":[
+{"id":"F052","claim":"Gartner forecasts …","status":"Estimated","as_of":"2026","refs":[5]},
+…
+]}</pre>
+    <p><code>n</code> is the citation number in the text; <code>evidence</code> lists every cited finding with its status and the references that support it. The PDF, HTML and Markdown leave the source list and evidence register out and say which file holds them — keeping the document short and making the references cheap to hand to another model.</p>
+    <p>To print them in the document as well, pass <code>--save-ref</code> (or set <code>report.include_references: true</code>). It works on re-renders too, at no cost:</p>
+<pre>boku render runs/2026-09-23T024958-kubernetes-used-ai-infrastructure --save-ref</pre>
+
+    <h2 id="report-shape">Report shape follows the request</h2>
+    <p>Reports are not poured into one template. The planner writes a <code>report_shape</code> from your wording, and the synthesizer and editor receive your original request with an instruction to honour its format, length, audience and structure:</p>
+    <ul>
+      <li>"Compare X and Y" opens with the comparison table and ends with a <em>Verdict</em>.</li>
+      <li>"Should we…" leads with the <em>Recommendation</em>, then options, risks and next steps.</li>
+      <li>"Give me a one-pager" gets the compact layout and a short summary.</li>
+      <li>"Step by step" orders sections as steps.</li>
+    </ul>
+    <p>The editor may rename the fixed parts (<code>summary_title</code>, <code>key_findings_title</code>, <code>conclusion_title</code>), leave out key findings or the conclusion when the form does not need them, and choose <code>layout: compact</code>. Set <code>report.layout: full</code> or <code>compact</code> to override its choice.</p>
+
+    <h2 id="commands">Commands and flags</h2>
+<pre>boku report &lt;topic&gt; [flags]     research a topic and publish a report
+boku resume &lt;run-dir&gt; [flags]   continue an interrupted or blocked run
+boku render &lt;run-dir&gt; [flags]   rebuild outputs from a run's artifacts (no agents, no cost)
+boku status &lt;run-dir&gt;           stages, tasks and cost of a run
+boku doctor                     check the agent runtime, Ollama and Chrome
+boku init [path]                write a commented boku.yaml</pre>
+    <table>
+      <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>--short</code>, <code>--quick</code>, <code>--mode M</code></td><td>report mode (see <a href="#modes">modes</a>)</td></tr>
+        <tr><td><code>--save-ref</code></td><td>include the source list and evidence register in the document</td></tr>
+        <tr><td><code>--local-model TAG</code></td><td>Ollama model for <code>--quick</code> and formatting</td></tr>
+        <tr><td><code>--depth quick|standard|deep</code></td><td>how much research to do</td></tr>
+        <tr><td><code>--agents N</code></td><td>maximum research workstreams</td></tr>
+        <tr><td><code>--parallel N</code></td><td>maximum agents running at once</td></tr>
+        <tr><td><code>--max-cost USD</code></td><td>stop launching agents at this spend</td></tr>
+        <tr><td><code>--freshness 30d|6m|1y</code></td><td>window within which information counts as current</td></tr>
+        <tr><td><code>--sources "…"</code></td><td>preferred sources or source types</td></tr>
+        <tr><td><code>--min-sources N</code></td><td>distinct sources the research gate expects</td></tr>
+        <tr><td><code>--format pdf,html,md</code></td><td>outputs to publish</td></tr>
+        <tr><td><code>--model M</code></td><td>model for all agents on the main provider</td></tr>
+        <tr><td><code>--iterations N</code></td><td>fact-check → follow-up research rounds</td></tr>
+        <tr><td><code>--config FILE</code></td><td>configuration file (default <code>./boku.yaml</code> if present)</td></tr>
+      </tbody>
+    </table>
+    <p>Exit codes: <code>0</code> published, <code>1</code> error, <code>3</code> blocked by a quality gate, <code>130</code> interrupted.</p>
+
+    <h2 id="run-directory">Run directory</h2>
+<pre>runs/2026-09-23T074500-enterprises-deploying-ai-agents-2026/
+  manifest.json      configuration, stage status, every agent call, cost
+  plan.json / .md    planner output
+  research/          one JSON artifact per research task
+  evidence/          de-duplicated sources and findings (F001 ⇄ S001)
+  factcheck/         one artifact per critic round
+  synthesis/         thesis, insights, outline
+  report/            document.json (drafts), report.json, references.json, gates.json, HTML, Markdown
+  output/            the PDF before publishing
+  agents/            raw agent responses
+  logs/boku.log</pre>
+
+    <h2 id="custom-models">Custom models</h2>
+    <p>Claude Code is the default and needs no configuration. To run Boku on another model, pass a config file. Nothing changes unless you do.</p>
+<pre><span class="c"># config.yaml</span>
+agents:
+  provider: openai               <span class="c"># claude-code | ollama | openai</span>
+  endpoint: http://localhost:8000/v1
+  model: Qwen/Qwen2.5-72B-Instruct
+  api_key_env: OPENROUTER_API_KEY <span class="c"># name of the env var; empty for a local server</span>
+  price_input_per_mtok: 0.35     <span class="c"># optional, for cost tracking and --max-cost</span>
+  price_output_per_mtok: 0.40
+  timeout: 30m</pre>
+<pre>boku report "How are banks deploying generative AI?" --config config.yaml</pre>
+    <table>
+      <thead><tr><th>Provider</th><th>Speaks</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td><code>claude-code</code></td><td><code>claude -p</code> in restricted mode</td><td>default; <code>agents.model: opus</code>, <code>role_models</code></td></tr>
+        <tr><td><code>openai</code></td><td><code>POST {endpoint}/chat/completions</code></td><td>vLLM, SGLang, LM Studio, llama.cpp server, OpenRouter, OpenAI, Together, Groq</td></tr>
+        <tr><td><code>ollama</code></td><td><code>POST {endpoint}/api/chat</code></td><td>any pulled Ollama model</td></tr>
+      </tbody>
+    </table>
+    <p>Structured output: Boku sends the JSON Schema for each agent's output as <code>response_format: json_schema</code> (OpenAI-compatible) or <code>format</code> (Ollama), and also in the system prompt. Servers that reject <code>response_format</code> are retried without it.</p>
+    <p>Mix providers per role with <code>local.roles</code>: for example keep research on Claude Code and run synthesis and formatting locally with <code>local.roles: [synthesizer, formatter]</code>. See <code>examples/custom-model.yaml</code> and <code>examples/local-ollama.yaml</code>.</p>
+
+    <h2 id="local-model">Local model (Ollama)</h2>
+<pre>ollama pull llama3.1:8b        <span class="c"># or qwen2.5:7b, qwen2.5:14b, gemma2:9b …</span>
+boku doctor</pre>
+    <p>The local model does two jobs:</p>
+    <ol>
+      <li><b>Formatting pass</b> (always, when Ollama is reachable). If the editorial draft passes every check but has style problems — generic phrasing, stray Markdown, repeated sentences — Boku sends just those passages to the local model instead of asking the main model for a full revision. A rewrite is accepted only if it keeps exactly the same citation markers and numbers, so it cannot change facts. Turn it off with <code>local.format: false</code>.</li>
+      <li><b>Quick mode</b>. <code>--quick</code> routes every role to the local model.</li>
+    </ol>
+<pre>local:
+  endpoint: http://localhost:11434
+  model: llama3.1:8b
+  context_tokens: 16384          <span class="c"># num_ctx; Ollama's default of 2048 is too small</span>
+  format: true
+  roles: []                      <span class="c"># e.g. [formatter, synthesizer]; --quick uses all</span></pre>
+    <div class="callout"><p>Boku fits fetched pages to <code>context_tokens</code> (Ollama silently drops the start of an over-long prompt) and caps each generation, so a small model cannot run away. Larger models (14B+) with 32k context write noticeably better quick reports.</p></div>
+
+    <h2 id="web-search">Web search for models without web tools</h2>
+    <p>Claude Code searches and reads the web by itself. Ollama and OpenAI-compatible models cannot, so Boku does it for them before each research task:</p>
+    <ol>
+      <li>Search each workstream question (DuckDuckGo by default, or your SearXNG instance).</li>
+      <li>Fetch the top result pages, round-robin across questions, and extract readable text, title, publisher and publication date.</li>
+      <li>Give the pages to the model as numbered sources <code>s1…sN</code>.</li>
+      <li><b>Re-ground the output</b>: a cited source must be a page Boku fetched; its URL, title and date come from the fetch, not the model. Findings citing anything else are rejected as unsourced.</li>
+    </ol>
+<pre>search:
+  engine: duckduckgo             <span class="c"># duckduckgo | searxng</span>
+  searxng_url: ""                <span class="c"># e.g. http://localhost:8888 (JSON output enabled)</span>
+  results_per_query: 5
+  max_pages: 10                  <span class="c"># per research task</span>
+  page_chars: 4000               <span class="c"># text kept per page</span></pre>
+    <p>Page fetches refuse loopback, private and link-local addresses: result URLs are untrusted, so a fetch can never reach services on your machine or network.</p>
+
+    <h2 id="configuration">Configuration</h2>
+    <p><code>boku init</code> writes a commented <code>boku.yaml</code>. Boku reads <code>./boku.yaml</code> automatically, or the file given with <code>--config</code>. Flags override the file; unknown keys are errors.</p>
+<pre>agents:
+  provider: claude-code
+  model: ""                      <span class="c"># Claude Code default</span>
+  role_models: {editorial: opus}
+  max_parallel: 4
+  max_agents: 6
+  max_retries: 2
+  timeout: 20m
+  max_cost_usd: 0                <span class="c"># 0 = unlimited</span>
+
+local:  {endpoint: http://localhost:11434, model: llama3.1:8b, context_tokens: 16384, format: true}
+search: {engine: duckduckgo, results_per_query: 5, max_pages: 10, page_chars: 4000}
+
+research:
+  depth: standard                <span class="c"># quick | standard | deep</span>
+  freshness_days: 365
+  max_iterations: 2
+  min_sources: 0                 <span class="c"># 0 = from depth: 8 / 20 / 35</span>
+  fact_check: true
+
+report:
+  mode: full                     <span class="c"># full | short | quick</span>
+  layout: auto                   <span class="c"># auto | full | compact</span>
+  include_references: false      <span class="c"># --save-ref</span>
+  formats: [pdf]
+  page_size: A4
+  author: ""
+
+output:
+  directory: ./reports
+  runs_directory: ./runs
+  prompts_directory: ""</pre>
+
+    <h2 id="pipeline">Pipeline and agents</h2>
+<pre>topic ─▶ Planner ─▶ plan.json (objective, questions, workstreams, report shape)
+            ├─▶ Primary ─┐
+            ├─▶ Market ──┤  parallel research agents
+            ├─▶ Technical┤
+            └─▶ …       ─┘
+                          ▼
+                 Evidence store  (F001… ⇄ S001…, de-duplicated, tiered, dated)
+                          ▼
+                 Fact checker ⟲ follow-up research      ── research & fact gates
+                          ▼
+                 Synthesis (thesis, insights, outline)
+                          ▼
+                 Editorial ⟲ local formatter ⟲ revision ── editorial gate
+                          ▼
+                 Report model ─▶ HTML ─▶ PDF             ── PDF gate
+                              └▶ references.json</pre>
+    <table>
+      <thead><tr><th>Role</th><th>Job</th><th>Tools</th></tr></thead>
+      <tbody>
+        <tr><td>planner</td><td>objective, questions, workstreams, report shape</td><td>web search</td></tr>
+        <tr><td>primary · market · technical · financial · competitive · case-study</td><td>research one workstream into sourced findings</td><td>web search, fetch</td></tr>
+        <tr><td>fact-checker</td><td>verifies claims, rejects unsupported ones, requests follow-ups</td><td>web search, fetch</td></tr>
+        <tr><td>synthesizer</td><td>selects, connects and interprets; designs the outline</td><td>none</td></tr>
+        <tr><td>editorial</td><td>writes the report as structured content with citations</td><td>none</td></tr>
+        <tr><td>formatter</td><td>fixes style problems in flagged passages (local model)</td><td>none</td></tr>
+      </tbody>
+    </table>
+    <p>Claude Code agents run as <code>claude -p</code> in restricted mode with only web tools, no MCP servers, a filtered environment and a JSON Schema for their output. The Go process orchestrates; agents never write files or run commands.</p>
+
+    <h2 id="sources">Source breadth</h2>
+    <p>Researchers are told to go wide before going deep: search each question several ways, mix source types (primary documents, independent research, quality press, practitioner write-ups), follow citations upstream to the original, corroborate headline numbers with two independent sources, and look specifically for the last 90 days. Targets by depth:</p>
+    <table>
+      <thead><tr><th>Depth</th><th>Findings per researcher</th><th>Sources per researcher</th><th>Research gate target</th></tr></thead>
+      <tbody>
+        <tr><td>quick</td><td>6–10</td><td>6+</td><td>8 sources</td></tr>
+        <tr><td>standard</td><td>12–20</td><td>10+, three types</td><td>20 sources</td></tr>
+        <tr><td>deep</td><td>20–35</td><td>18+, four types</td><td>35 sources</td></tr>
+      </tbody>
+    </table>
+    <p>The planner names 4–8 specific priority sources per workstream. Raise the bar with <code>--min-sources</code>.</p>
+
+    <h2 id="gates">Quality gates</h2>
+    <ul>
+      <li><b>Research gate</b>: enough usable findings and distinct sources; warns on weak tiers and undated data.</li>
+      <li><b>Fact-check gate</b>: blocks on a failed verdict or unresolved critical issues (skipped in quick mode).</li>
+      <li><b>Editorial gate</b>: unknown or rejected citations, uncited summary, citation coverage, generic phrasing, repetition.</li>
+      <li><b>PDF gate</b>: pages rendered, no empty pages, every section present, citations rendered.</li>
+    </ul>
+    <p>A blocked report exits with code 3; the reason is in <code>report/gates.json</code> and nothing is published.</p>
+
+    <h2 id="cost">Cost</h2>
+    <p>Costs reported by Claude Code for real runs, recorded in each run's <code>manifest.json</code>:</p>
+    <table>
+      <thead><tr><th>Run</th><th>Depth</th><th>Agent calls</th><th>Findings / sources</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Kubernetes for AI infrastructure</td><td>quick</td><td>11</td><td>72 / 77</td><td>$7.73</td></tr>
+        <tr><td>GPU monitoring tool roadmap</td><td>standard</td><td>13</td><td>120 / 147</td><td>$12.96</td></tr>
+        <tr><td>Self-hosting vs managed AI</td><td>deep</td><td>10</td><td>197 / 217</td><td>$24.09</td></tr>
+        <tr><td>Launching an agentic AI start-up</td><td>deep</td><td>10</td><td>178 / 207</td><td>$30.72</td></tr>
+      </tbody>
+    </table>
+    <p>Research agents account for 70–85% of spend. To spend less: <code>--short</code>, <code>--agents 3</code>, <code>--iterations 0</code>, a cheaper model for researchers via <code>role_models</code>, a hard cap with <code>--max-cost</code>, or <code>--quick</code> for zero API spend.</p>
+
+    <h2 id="tuning">Tuning</h2>
+    <ul>
+      <li>Prompts are Markdown in <code>prompts/</code>, embedded in the binary. Copy them and set <code>output.prompts_directory</code> to experiment without rebuilding.</li>
+      <li>Look and feel: <code>internal/render/style.css</code> and <code>report.html.tmpl</code>; then <code>boku render &lt;run-dir&gt;</code>.</li>
+      <li>Models per role: <code>agents.role_models: {fact-checker: opus, editorial: opus}</code>.</li>
+    </ul>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>quick mode needs the local model</code></td><td>Start Ollama and <code>ollama pull llama3.1:8b</code>, or pass <code>--local-model</code> with a model you have.</td></tr>
+        <tr><td><code>duckduckgo returned HTTP 202</code> / no results</td><td>You are being rate-limited; lower <code>agents.max_parallel</code> or use <code>search.engine: searxng</code>.</td></tr>
+        <tr><td>Exit code 3</td><td>A gate blocked publication; read <code>report/gates.json</code>. Resume after raising limits, or re-render.</td></tr>
+        <tr><td>No PDF</td><td>Install Chrome/Chromium or set <code>report.chrome</code>; or <code>--format html,md</code>.</td></tr>
+      </tbody>
+    </table>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Boku · Apache-2.0</span>
+    <nav aria-label="Footer"><a href="./">Home</a><a href="https://github.com/riteshsonawane1372/boku">GitHub</a></nav>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script>
+// Highlight the section in view.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll(".docs-nav a"));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting && byId[e.target.id]) {
+        links.forEach(function (a) { a.classList.remove("on"); });
+        byId[e.target.id].classList.add("on");
+      }
+    });
+  }, { rootMargin: "-70px 0px -70% 0px" });
+  document.querySelectorAll(".prose h1[id], .prose h2[id]").forEach(function (h) { io.observe(h); });
+})();
+</script>
+</body>
+</html>

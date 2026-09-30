@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boku — Multi-agent Research Reports</title>
+<meta name="description" content="Give Boku a question. A team of AI agents plans, researches, fact-checks and writes a cited, typeset research report. Runs on Claude Code, your own model, or a local Ollama model.">
+<meta property="og:title" content="Boku — research reports you can audit">
+<meta property="og:description" content="Planner, parallel researchers, an independent fact-checker, synthesis and an editor. Every sentence cites its source; every chart traces to evidence.">
+<meta property="og:image" content="https://boku.riteshsonawane.com/assets/img/report-page-1.png">
+<meta property="og:url" content="https://boku.riteshsonawane.com/">
+<link rel="canonical" href="https://boku.riteshsonawane.com/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d3b66'/%3E%3Cpath d='M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z' fill='none' stroke='%237cc4ff' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Boku home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0d3b66"/><path d="M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z" fill="none" stroke="#7cc4ff" stroke-width="2.6" stroke-linejoin="round"/></svg>
+      Boku
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#pipeline">How it works</a>
+      <a href="#cost">Cost</a>
+      <a href="#modes">Modes</a>
+      <a href="#output">Output</a>
+      <a class="keep" href="docs.html">Docs</a>
+      <button class="theme-toggle" type="button" aria-label="Toggle colour theme" data-theme-toggle>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="gh" href="https://github.com/riteshsonawane1372/boku">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Open-source · Go · multi-agent</span>
+      <h1>Research reports<br>you can <em>audit</em>.</h1>
+      <p class="lead">Give Boku a question. A team of agents plans the research, searches in parallel, lets an independent critic reject weak claims, and writes a typeset PDF where every sentence cites its source and every chart traces to evidence.</p>
+      <div class="cta">
+        <a class="btn primary" href="docs.html#install">Get started</a>
+        <a class="btn" href="#pipeline">Watch a real run</a>
+      </div>
+      <div class="install" aria-label="Install command">
+        <span class="dollar">$</span><span id="install-cmd">go install github.com/riteshsonawane1372/boku/cmd/boku@latest</span>
+        <button type="button" data-copy="#install-cmd">Copy</button>
+      </div>
+    </div>
+    <div class="term" role="img" aria-label="Terminal replay of a Boku run">
+      <div class="term-bar"><i></i><i></i><i></i><span>boku report "How Kubernetes is being used for AI infrastructure"</span></div>
+      <pre id="term"></pre>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="pipeline">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How it works</span>
+      <h2>Ten roles, one evidence store, a critic with a veto.</h2>
+      <p>This is a replay of a real run, compressed about 30×: 11 agent calls, 72 findings from 77 sources, two follow-up tasks requested by the fact-checker, $7.73 reported by Claude Code. Switch modes to see what changes.</p>
+    </div>
+
+    <div class="pipeline-card">
+      <div class="pipe-controls">
+        <div class="seg" role="group" aria-label="Report mode">
+          <button type="button" data-mode="full" aria-pressed="true">Full · Claude Code</button>
+          <button type="button" data-mode="short" aria-pressed="false">Short</button>
+          <button type="button" data-mode="quick" aria-pressed="false">Quick · local Ollama</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn replay" type="button" id="replay">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Replay
+        </button>
+      </div>
+      <div class="pipe-body">
+        <div class="pipe-stage">
+          <svg id="pipe-svg" viewBox="0 0 900 470" role="img" aria-label="Agent pipeline diagram"></svg>
+        </div>
+        <aside class="pipe-side" aria-live="polite">
+          <div class="stat-grid">
+            <div class="stat"><div class="k">Elapsed</div><div class="v" id="s-time">0:00</div></div>
+            <div class="stat cost"><div class="k">Spend</div><div class="v" id="s-cost">$0.00</div></div>
+            <div class="stat"><div class="k">Agent calls</div><div class="v" id="s-calls">0</div></div>
+            <div class="stat"><div class="k">Findings</div><div class="v" id="s-find">0</div></div>
+            <div class="stat wide"><div class="k">Running on</div><div class="v" id="s-runtime" style="font-size:15px">Claude Code</div></div>
+          </div>
+          <div class="feed" id="feed" aria-label="Run log"></div>
+        </aside>
+      </div>
+      <div class="pipe-note" id="pipe-note">Full mode timings and costs are the recorded values from run <code>2026-09-23T024958</code> (<code>--depth quick</code>).</div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="cost">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Cost</span>
+      <h2>What a report costs.</h2>
+      <p>Spend is dominated by the research agents reading the web, not by writing. Numbers below are from real runs, as reported by Claude Code (<code>total_cost_usd</code>) and recorded in each run's <code>manifest.json</code>.</p>
+    </div>
+    <div class="cost-grid">
+      <div class="card">
+        <h3>Recorded runs, by agent role</h3>
+        <p class="hint">Each bar is one report; segments are the cost of each role.</p>
+        <div class="runs" id="runs"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="card">
+        <h3>Modes at a glance</h3>
+        <p class="hint">Pick per report with a flag. Default is full.</p>
+        <table class="mode-table">
+          <thead><tr><th>Mode</th><th>Typical spend</th><th>What you get</th></tr></thead>
+          <tbody>
+            <tr><td><b>Full</b><small>default</small></td><td class="usd">$8–31<small><span class="pill measured">measured</span></small></td><td>Planner, up to 6 researchers, fact-check rounds with follow-ups, 15–40 page report.</td></tr>
+            <tr><td><b>Short</b><small><code>--short</code></small></td><td class="usd">≈ $4–6<small><span class="pill estimate">estimate</span></small></td><td>3 researchers, one fact-check round, a compact 3–8 page brief.</td></tr>
+            <tr><td><b>Quick</b><small><code>--quick</code></small></td><td class="usd free">$0<small><span class="pill local">local</span></small></td><td>Every agent on your Ollama model with Boku's own web search. No fact-check. A first pass.</td></tr>
+          </tbody>
+        </table>
+        <p class="footnote">Short estimate: per-role costs of the <code>--depth quick</code> run above with 3 researchers and one fact-check round. Quick spends no API money; it uses your machine. On a Claude subscription, Claude Code usage counts against your plan rather than being billed at these figures.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="modes">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Modes</span>
+      <h2>One command. Three depths of effort.</h2>
+      <p>No flag gives you the full report. Add one when you want something faster or cheaper; combine with <code>--save-ref</code> to print the source list inside the PDF.</p>
+    </div>
+    <div class="modes">
+      <article class="mode">
+        <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M8 7h8M8 11h6"/></svg></div>
+        <h3>Full report</h3>
+        <p>The default. Built for decisions that need evidence.</p>
+        <ul><li>Planner chooses 1–6 research roles</li><li>Fact-checker rejects claims, orders follow-ups</li><li>Cover, contents, charts, diagrams, methodology</li></ul>
+        <pre class="cmd"><span class="p">$ </span>boku report "How are banks deploying GenAI?"</pre>
+      </article>
+      <article class="mode">
+        <div class="ico" style="background:var(--amber-soft);color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div>
+        <h3>Short search report</h3>
+        <p>A cited brief when you need the answer, not a book.</p>
+        <ul><li>3 workstreams, quick depth</li><li>One fact-check round, no follow-ups</li><li>Compact layout: no cover, sections flow</li></ul>
+        <pre class="cmd"><span class="p">$ </span>boku report "Is Postgres 18 AIO worth it?" <span class="f">--short</span></pre>
+      </article>
+      <article class="mode">
+        <div class="ico" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+        <h3>Quick, on your machine</h3>
+        <p>Every agent runs on a local Ollama model. Zero Claude tokens.</p>
+        <ul><li>Boku searches and fetches pages itself</li><li>Models may only cite pages Boku fetched</li><li>No fact-check: treat it as a first pass</li></ul>
+        <pre class="cmd"><span class="p">$ </span>boku report "GPU sharing on Kubernetes" <span class="f">--quick</span></pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="output">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Output</span>
+      <h2>A typeset PDF, and a references file beside it.</h2>
+      <p>Citations in the text are numbers. The sources behind them go to a compact <code>&lt;report&gt;.references.json</code>, cheap to hand to another model or tool. Pass <code>--save-ref</code> to print them in the PDF as well.</p>
+    </div>
+    <div class="output-grid">
+      <div>
+        <div class="pages">
+          <figure style="margin:0"><a href="https://github.com/riteshsonawane1372/boku/blob/main/docs/examples/kubernetes-ai-infrastructure.pdf"><img src="assets/img/report-page-1.png" alt="Report cover page" loading="lazy" width="400" height="566"></a><figcaption>Cover</figcaption></figure>
+          <figure style="margin:0"><a href="https://github.com/riteshsonawane1372/boku/blob/main/docs/examples/kubernetes-ai-infrastructure.pdf"><img src="assets/img/report-page-4.png" alt="Key findings page" loading="lazy" width="400" height="566"></a><figcaption>Key findings</figcaption></figure>
+          <figure style="margin:0"><a href="https://github.com/riteshsonawane1372/boku/blob/main/docs/examples/kubernetes-ai-infrastructure.pdf"><img src="assets/img/report-page-6.png" alt="Section with table and callout" loading="lazy" width="400" height="566"></a><figcaption>Table and callout</figcaption></figure>
+          <figure style="margin:0"><a href="https://github.com/riteshsonawane1372/boku/blob/main/docs/examples/kubernetes-ai-infrastructure.pdf"><img src="assets/img/report-page-7.png" alt="Chart built from evidence" loading="lazy" width="400" height="566"></a><figcaption>Chart from evidence</figcaption></figure>
+        </div>
+        <p class="footnote">Pages from a real 32-page report, unedited. <a href="https://github.com/riteshsonawane1372/boku/blob/main/docs/examples/kubernetes-ai-infrastructure.pdf">Open the full PDF</a>.</p>
+      </div>
+      <div class="code-card">
+        <div class="head"><span>kubernetes-platform-ai-infrastructure.references.json</span><span>JSON</span></div>
+<pre>{<span class="k">"title"</span>:<span class="s">"Kubernetes as the Platform for AI Infrastructure"</span>,
+ <span class="k">"run_id"</span>:<span class="s">"2026-09-23T024958-kubernetes-used-ai-infrastructure"</span>,
+<span class="k">"references"</span>:[
+{<span class="k">"n"</span>:<span class="n">2</span>,<span class="k">"title"</span>:<span class="s">"The CNCF Annual Cloud Native Survey: The Infrastructure of AI's Future"</span>,
+ <span class="k">"publisher"</span>:<span class="s">"CNCF"</span>,<span class="k">"url"</span>:<span class="s">"https://www.cncf.io/reports/the-cncf-annual-cloud-native-survey/"</span>,
+ <span class="k">"published"</span>:<span class="s">"2026-01-01"</span>,<span class="k">"accessed"</span>:<span class="s">"2026-09-23"</span>,<span class="k">"tier"</span>:<span class="n">1</span>},
+{<span class="k">"n"</span>:<span class="n">5</span>,<span class="k">"title"</span>:<span class="s">"Gartner Forecasts Worldwide AI-Optimized IaaS Spending to Grow 96% in 2026"</span>,
+ <span class="k">"publisher"</span>:<span class="s">"Gartner"</span>, <span class="c">…</span>}
+],
+<span class="k">"evidence"</span>:[
+{<span class="k">"id"</span>:<span class="s">"F052"</span>,<span class="k">"claim"</span>:<span class="s">"Gartner forecasts worldwide AI-optimised IaaS spending will grow 96% in 2026 to about $42B…"</span>,
+ <span class="k">"status"</span>:<span class="s">"Estimated"</span>,<span class="k">"as_of"</span>:<span class="s">"2026"</span>,<span class="k">"refs"</span>:[<span class="n">5</span>]}
+]}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="byo">
+  <div class="wrap byo">
+    <div class="section-head" style="margin:0">
+      <span class="eyebrow">Bring your own model</span>
+      <h2>Claude Code by default. Anything else with a config file.</h2>
+      <p>Point Boku at Ollama or any OpenAI-compatible endpoint — vLLM, LM Studio, llama.cpp, OpenRouter. Nothing changes unless you pass a config.</p>
+      <ul class="checks">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Boku's own web search (DuckDuckGo or SearXNG) for models without web tools</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Sources are re-grounded: a model cannot invent a URL</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Per-token prices in config give you cost tracking and <code>--max-cost</code></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>A local model fixes style problems so the main model isn't called again</li>
+      </ul>
+    </div>
+    <div class="code-card">
+      <div class="head"><span>config.yaml</span><span>boku report "…" --config config.yaml</span></div>
+<pre><span class="k">agents</span>:
+  <span class="k">provider</span>: <span class="s">openai</span>            <span class="c"># claude-code | ollama | openai</span>
+  <span class="k">endpoint</span>: <span class="s">http://localhost:8000/v1</span>
+  <span class="k">model</span>: <span class="s">Qwen/Qwen2.5-72B-Instruct</span>
+  <span class="k">api_key_env</span>: <span class="s">OPENROUTER_API_KEY</span>
+  <span class="k">price_input_per_mtok</span>: <span class="n">0.35</span>
+  <span class="k">price_output_per_mtok</span>: <span class="n">0.40</span>
+
+<span class="k">local</span>:                       <span class="c"># small model for --quick and formatting</span>
+  <span class="k">model</span>: <span class="s">llama3.1:8b</span>
+
+<span class="k">search</span>:
+  <span class="k">engine</span>: <span class="s">duckduckgo</span>          <span class="c"># or searxng</span>
+  <span class="k">max_pages</span>: <span class="n">12</span></pre>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Why trust it</span>
+      <h2>Evidence first, prose second.</h2>
+    </div>
+    <div class="features">
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><h3>Claims keep their sources</h3><p>Researchers return structured findings. The editor can cite only findings that survived fact-checking; citations are resolved by code.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><h3>Freshness is computed</h3><p>Every finding carries the date it describes. Boku labels it current or historical against your window — the model never decides.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><h3>A critic with a veto</h3><p>An independent fact-checker rejects unsupported claims and sends targeted follow-up research. Quality gates block publication.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><h3>Charts that trace</h3><p>A chart is drawn only if every value appears in the cited evidence. Agents supply data, never layout.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 20V9"/></svg><h3>Shaped by your question</h3><p>A comparison opens with its matrix, a decision with the recommendation, a one-pager stays one page. Headings follow the request.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><h3>Inspectable and resumable</h3><p>Every artifact lands in a run directory. Interrupted runs resume where they stopped; re-rendering costs nothing.</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Boku · Apache-2.0 · built in Go</span>
+    <nav aria-label="Footer">
+      <a href="docs.html">Documentation</a>
+      <a href="docs.html#modes">Modes</a>
+      <a href="docs.html#custom-models">Custom models</a>
+      <a href="https://github.com/riteshsonawane1372/boku">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script src="assets/pipeline.js"></script>
+</body>
+</html>

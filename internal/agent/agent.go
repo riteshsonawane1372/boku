@@ -23,7 +23,12 @@ const (
 	RoleFactChecker = "fact-checker"
 	RoleSynthesizer = "synthesizer"
 	RoleEditorial   = "editorial"
+	// RoleFormatter rewrites flagged passages for style on the local model.
+	RoleFormatter = "formatter"
 )
+
+// AllRoles lists every role, in pipeline order.
+var AllRoles = []string{RolePlanner, RolePrimary, RoleMarket, RoleTechnical, RoleFinancial, RoleCompetitive, RoleCaseStudy, RoleFactChecker, RoleSynthesizer, RoleEditorial, RoleFormatter}
 
 // ResearchRoles are the roles the planner may assign to workstreams.
 var ResearchRoles = []string{RolePrimary, RoleMarket, RoleTechnical, RoleFinancial, RoleCompetitive, RoleCaseStudy}
@@ -64,6 +69,11 @@ type Task struct {
 	Schema json.RawMessage
 	// Tools the agent may use (see Tool* constants). Empty means none.
 	Tools []string
+	// SearchQueries seed Boku's own retrieval for runtimes without web tools
+	// (see ChatModel). Claude Code ignores them and searches by itself.
+	SearchQueries []string
+	// SearchPages caps the pages fetched for SearchQueries; 0 = runtime default.
+	SearchPages int
 	// Model overrides the runtime default when non-empty.
 	Model string
 	// Timeout bounds this task; zero means the runtime default.

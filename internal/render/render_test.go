@@ -33,7 +33,7 @@ func sampleReport(t *testing.T) *report.Report {
 		Topic: "How did Northwind Logistics modernise its dispatch platform?", Date: time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC),
 		RunID: "sample", Generator: "boku test", PageSize: "A4",
 	}
-	r, issues := report.Build(doc, store, meta, report.BuildOptions{Charts: true, Diagrams: true,
+	r, issues := report.Build(doc, store, meta, report.BuildOptions{Charts: true, Diagrams: true, IncludeReferences: true,
 		Method: &report.Method{Workstreams: []string{"primary", "technical", "financial"}, FactCheckRounds: 1, FactCheckStatus: "pass", FreshnessDays: 365}})
 	for _, is := range issues {
 		if is.Severity == "error" {
@@ -68,6 +68,57 @@ func TestHTMLRendersAllParts(t *testing.T) {
 	if dir := os.Getenv("BOKU_RENDER_OUT"); dir != "" {
 		_ = os.WriteFile(filepath.Join(dir, "sample.html"), out, 0o644)
 		_ = os.WriteFile(filepath.Join(dir, "sample.md"), Markdown(r), 0o644)
+	}
+}
+
+func TestReferencesOmittedByDefault(t *testing.T) {
+	r := sampleReport(t)
+	r.IncludeReferences = false
+	r.Metadata.ReferencesFile = "sample.references.json"
+	out, err := HTML(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(out)
+	if strings.Contains(html, `id="src-1"`) || strings.Contains(html, `href="#src-`) {
+		t.Error("source list or links rendered without --save-ref")
+	}
+	if !strings.Contains(html, `<sup class="cite">`) || !strings.Contains(html, "sample.references.json") {
+		t.Error("citations or references-file note missing")
+	}
+	md := string(Markdown(r))
+	if strings.Contains(md, "## Sources") || !strings.Contains(md, "sample.references.json") {
+		t.Error("markdown should point to the references file instead of listing sources")
+	}
+	var refs struct {
+		References []struct {
+			N   int    `json:"n"`
+			URL string `json:"url"`
+		} `json:"references"`
+		Evidence []struct {
+			ID   string `json:"id"`
+			Refs []int  `json:"refs"`
+		} `json:"evidence"`
+	}
+	if err := json.Unmarshal(ReferencesJSON(r), &refs); err != nil {
+		t.Fatal(err)
+	}
+	if len(refs.References) != len(r.Sources) || refs.References[0].N != 1 || refs.References[0].URL == "" || len(refs.Evidence) == 0 {
+		t.Errorf("references file incomplete: %+v", refs)
+	}
+}
+
+func TestCompactLayout(t *testing.T) {
+	r := sampleReport(t)
+	r.Layout = report.LayoutCompact
+	r.Labels.Summary = "Verdict"
+	out, err := HTML(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(out)
+	if strings.Contains(html, `class="cover"`) || strings.Contains(html, `class="toc"`) || !strings.Contains(html, `class="compact-cover"`) || !strings.Contains(html, "Verdict") {
+		t.Error("compact layout should replace cover and contents with a title block")
 	}
 }
 

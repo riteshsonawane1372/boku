@@ -24,9 +24,34 @@ const (
 	DepthDeep     Depth = "deep"
 )
 
+// Mode is the kind of report to produce.
+type Mode string
+
+const (
+	// ModeFull is the default: full research programme, fact-checking and a
+	// typeset report with cover and contents.
+	ModeFull Mode = "full"
+	// ModeShort is a short search report: fewer workstreams, one fact-check
+	// round, a compact document of a few pages.
+	ModeShort Mode = "short"
+	// ModeQuick runs every agent on the local model (Ollama) with Boku's own
+	// web search, skips fact-checking and produces a compact report. It spends
+	// no Claude Code tokens.
+	ModeQuick Mode = "quick"
+)
+
+// Providers are the agent runtimes Boku can drive.
+const (
+	ProviderClaudeCode = "claude-code"
+	ProviderOllama     = "ollama"
+	ProviderOpenAI     = "openai" // any OpenAI-compatible chat completions endpoint
+)
+
 type Config struct {
 	Project  Project  `yaml:"project" json:"project"`
 	Agents   Agents   `yaml:"agents" json:"agents"`
+	Local    Local    `yaml:"local" json:"local"`
+	Search   Search   `yaml:"search" json:"search"`
 	Research Research `yaml:"research" json:"research"`
 	Report   Report   `yaml:"report" json:"report"`
 	Output   Output   `yaml:"output" json:"output"`
@@ -37,10 +62,22 @@ type Project struct {
 }
 
 type Agents struct {
-	// Provider selects the agent runtime. Only "claude-code" exists today.
+	// Provider selects the agent runtime: claude-code (default), ollama, or
+	// openai (any OpenAI-compatible endpoint: vLLM, LM Studio, OpenRouter, …).
 	Provider string `yaml:"provider" json:"provider"`
 	// Command is the Claude Code executable.
 	Command string `yaml:"command" json:"command"`
+	// Endpoint is the base URL for ollama/openai providers, e.g.
+	// http://localhost:11434 or http://localhost:8000/v1.
+	Endpoint string `yaml:"endpoint" json:"endpoint,omitempty"`
+	// APIKeyEnv names the environment variable holding the API key (openai).
+	APIKeyEnv string `yaml:"api_key_env" json:"api_key_env,omitempty"`
+	// ContextTokens is the context window requested from ollama (num_ctx).
+	ContextTokens int `yaml:"context_tokens" json:"context_tokens,omitempty"`
+	// PriceInputPerMTok and PriceOutputPerMTok let Boku compute cost for
+	// ollama/openai providers (USD per million tokens). 0 = free.
+	PriceInputPerMTok  float64 `yaml:"price_input_per_mtok" json:"price_input_per_mtok,omitempty"`
+	PriceOutputPerMTok float64 `yaml:"price_output_per_mtok" json:"price_output_per_mtok,omitempty"`
 	// Model is passed to the provider; empty uses the provider default.
 	Model string `yaml:"model" json:"model"`
 	// RoleModels overrides Model for specific roles (e.g. editorial: opus).
@@ -60,6 +97,39 @@ type Agents struct {
 	EnvPassthrough []string `yaml:"env_passthrough" json:"env_passthrough,omitempty"`
 }
 
+// Local configures a small local model (Ollama) that takes work off the main
+// provider: formatting passes always (when reachable), and every role in
+// quick mode.
+type Local struct {
+	// Endpoint is the Ollama server.
+	Endpoint string `yaml:"endpoint" json:"endpoint"`
+	// Model is the Ollama model tag, e.g. llama3.1:8b or qwen2.5:7b.
+	Model string `yaml:"model" json:"model"`
+	// ContextTokens is the context window requested (num_ctx).
+	ContextTokens int `yaml:"context_tokens" json:"context_tokens"`
+	// Format enables the local formatting pass that fixes style problems in
+	// the editorial draft without another call to the main provider.
+	Format bool `yaml:"format" json:"format"`
+	// Roles are routed to the local model instead of agents.provider.
+	// Quick mode routes every role; "*" means all roles.
+	Roles []string `yaml:"roles" json:"roles,omitempty"`
+}
+
+// Search configures Boku's own web retrieval, used by providers without
+// built-in web tools (ollama, openai). Claude Code searches by itself.
+type Search struct {
+	// Engine is duckduckgo (no key needed) or searxng.
+	Engine string `yaml:"engine" json:"engine"`
+	// SearxngURL is the base URL of a SearXNG instance with JSON output enabled.
+	SearxngURL string `yaml:"searxng_url" json:"searxng_url,omitempty"`
+	// ResultsPerQuery is how many results are taken from each search.
+	ResultsPerQuery int `yaml:"results_per_query" json:"results_per_query"`
+	// MaxPages bounds the pages fetched for one agent task.
+	MaxPages int `yaml:"max_pages" json:"max_pages"`
+	// PageChars bounds the text kept from each page.
+	PageChars int `yaml:"page_chars" json:"page_chars"`
+}
+
 type Research struct {
 	Depth Depth `yaml:"depth" json:"depth"`
 	// FreshnessDays is the window within which dated information counts as current.
@@ -71,9 +141,19 @@ type Research struct {
 	MinSources int `yaml:"min_sources" json:"min_sources"`
 	// Sources are hints (domains or source kinds) passed to the planner.
 	Sources []string `yaml:"sources" json:"sources,omitempty"`
+	// FactCheck runs the independent fact-checking agent. Quick mode turns it off.
+	FactCheck bool `yaml:"fact_check" json:"fact_check"`
 }
 
 type Report struct {
+	// Mode is full (default), short or quick; see Mode.
+	Mode Mode `yaml:"mode" json:"mode"`
+	// Layout is auto, full (cover + contents) or compact (title block, no
+	// cover). auto lets the editor choose from the request and the mode.
+	Layout string `yaml:"layout" json:"layout"`
+	// IncludeReferences puts the source list and evidence register in the
+	// PDF/HTML/Markdown. They are always written to <report>.references.json.
+	IncludeReferences bool `yaml:"include_references" json:"include_references"`
 	// Formats to produce: pdf, html, md.
 	Formats   []string `yaml:"formats" json:"formats"`
 	Citations bool     `yaml:"citations" json:"citations"`
@@ -133,12 +213,27 @@ func Default() Config {
 			MaxRetries:  2,
 			Timeout:     Duration(20 * time.Minute),
 		},
+		Local: Local{
+			Endpoint:      "http://localhost:11434",
+			Model:         "llama3.1:8b",
+			ContextTokens: 16384,
+			Format:        true,
+		},
+		Search: Search{
+			Engine:          "duckduckgo",
+			ResultsPerQuery: 5,
+			MaxPages:        10,
+			PageChars:       4000,
+		},
 		Research: Research{
 			Depth:         DepthStandard,
 			FreshnessDays: 365,
 			MaxIterations: 2,
+			FactCheck:     true,
 		},
 		Report: Report{
+			Mode:      ModeFull,
+			Layout:    "auto",
 			Formats:   []string{"pdf"},
 			Citations: true,
 			Charts:    true,
@@ -173,8 +268,42 @@ func Load(path string) (Config, error) {
 // Validate reports every invalid setting at once.
 func (c Config) Validate() error {
 	var errs []error
-	if c.Agents.Provider != "claude-code" {
-		errs = append(errs, fmt.Errorf("agents.provider %q is not supported (supported: claude-code)", c.Agents.Provider))
+	switch c.Agents.Provider {
+	case ProviderClaudeCode:
+	case ProviderOllama, ProviderOpenAI:
+		if c.Agents.Model == "" {
+			errs = append(errs, fmt.Errorf("agents.model is required for provider %s", c.Agents.Provider))
+		}
+		if c.Agents.Provider == ProviderOpenAI && c.Agents.Endpoint == "" {
+			errs = append(errs, errors.New("agents.endpoint is required for provider openai (e.g. http://localhost:8000/v1)"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("agents.provider %q is not supported (supported: claude-code, ollama, openai)", c.Agents.Provider))
+	}
+	switch c.Report.Mode {
+	case ModeFull, ModeShort, ModeQuick:
+	default:
+		errs = append(errs, fmt.Errorf("report.mode %q must be full, short or quick", c.Report.Mode))
+	}
+	switch c.Report.Layout {
+	case "auto", "full", "compact":
+	default:
+		errs = append(errs, fmt.Errorf("report.layout %q must be auto, full or compact", c.Report.Layout))
+	}
+	switch c.Search.Engine {
+	case "duckduckgo":
+	case "searxng":
+		if c.Search.SearxngURL == "" {
+			errs = append(errs, errors.New("search.searxng_url is required for search.engine searxng"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("search.engine %q must be duckduckgo or searxng", c.Search.Engine))
+	}
+	if c.Search.MaxPages < 1 || c.Search.ResultsPerQuery < 1 || c.Search.PageChars < 500 {
+		errs = append(errs, errors.New("search.max_pages and search.results_per_query must be >= 1, search.page_chars >= 500"))
+	}
+	if c.UsesLocal() && c.Local.Model == "" {
+		errs = append(errs, errors.New("local.model is required when local roles or quick mode are used"))
 	}
 	if c.Agents.MaxParallel < 1 {
 		errs = append(errs, errors.New("agents.max_parallel must be >= 1"))
@@ -227,13 +356,51 @@ func (c Config) MinSourcesFor() int {
 	}
 	switch c.Research.Depth {
 	case DepthQuick:
-		return 5
+		return 8
 	case DepthDeep:
-		return 20
+		return 35
 	default:
-		return 10
+		return 20
 	}
 }
+
+// ApplyMode adjusts the configuration for a report mode. Call it before
+// applying explicit CLI flags so the flags still win.
+func (c *Config) ApplyMode(m Mode) {
+	c.Report.Mode = m
+	switch m {
+	case ModeShort:
+		c.Research.Depth = DepthQuick
+		c.Agents.MaxAgents = min(c.Agents.MaxAgents, 3)
+		c.Research.MaxIterations = 0
+		if c.Report.Layout == "auto" {
+			c.Report.Layout = "compact"
+		}
+	case ModeQuick:
+		c.Research.Depth = DepthQuick
+		c.Agents.MaxAgents = min(c.Agents.MaxAgents, 3)
+		c.Agents.MaxParallel = min(c.Agents.MaxParallel, 2)
+		c.Research.MaxIterations = 1
+		c.Research.FactCheck = false
+		c.Local.Roles = []string{"*"}
+		if c.Report.Layout == "auto" {
+			c.Report.Layout = "compact"
+		}
+	}
+}
+
+// IsLocalRole reports whether role runs on the local model.
+func (c Config) IsLocalRole(role string) bool {
+	for _, r := range c.Local.Roles {
+		if r == "*" || r == role {
+			return true
+		}
+	}
+	return false
+}
+
+// UsesLocal reports whether any role is routed to the local model.
+func (c Config) UsesLocal() bool { return len(c.Local.Roles) > 0 }
 
 // ModelFor returns the model configured for a role.
 func (c Config) ModelFor(role string) string {

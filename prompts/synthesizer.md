@@ -26,6 +26,12 @@ should say. Do not summarise everything; select, connect and interpret.
 
 ### Design the outline
 
+Shape the report to the request, not to a template. Read the original request
+and the plan's `report_shape`: a comparison leads with the comparison, a
+decision leads with the recommendation, a how-to is ordered as steps, a
+question with a short answer gets a short report. Keep whatever the request
+says about format, length, audience or structure.
+
 Design the report `outline`: sections in reading order, each with its
 `title`, `purpose`, the `finding_ids` it will use, and `visuals`. Include
 only sections this topic needs; omit anything with thin evidence rather than

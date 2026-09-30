@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var roles = []string{"planner", "primary", "market", "technical", "financial", "competitive", "case-study", "fact-checker", "synthesizer", "editorial"}
+var roles = []string{"planner", "primary", "market", "technical", "financial", "competitive", "case-study", "fact-checker", "synthesizer", "editorial", "formatter"}
 
 func TestEveryRoleRenders(t *testing.T) {
 	lib, err := Load("")
@@ -16,7 +16,7 @@ func TestEveryRoleRenders(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, role := range roles {
-		s, err := lib.System(role, Vars{Today: "2026-09-23", FreshnessDays: 90, Depth: "deep"})
+		s, err := lib.System(role, Vars{Today: "2026-09-23", FreshnessDays: 90, Depth: "deep", Mode: "full"})
 		if err != nil {
 			t.Errorf("%s: %v", role, err)
 			continue
@@ -38,7 +38,7 @@ func TestEveryRoleRenders(t *testing.T) {
 
 func TestSchemasAreValidJSON(t *testing.T) {
 	lib, _ := Load("")
-	for _, name := range []string{"planner", "research", "factcheck", "synthesis", "document"} {
+	for _, name := range []string{"planner", "research", "factcheck", "synthesis", "document", "formatter"} {
 		raw, err := lib.Schema(name)
 		if err != nil {
 			t.Fatal(err)

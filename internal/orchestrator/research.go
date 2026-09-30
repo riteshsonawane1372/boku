@@ -112,9 +112,9 @@ func (o *Orchestrator) ingestResearch(st *state, j researchJob) error {
 }
 
 var depthTargets = map[config.Depth]string{
-	config.DepthQuick:    "Aim for 6–10 strong findings. Be efficient: stop once the core questions are answered.",
-	config.DepthStandard: "Aim for 10–18 strong findings covering every workstream question.",
-	config.DepthDeep:     "Aim for 18–30 strong findings. Pursue primary sources for every important figure and cover secondary questions.",
+	config.DepthQuick:    "Aim for 6–10 strong findings drawn from at least 6 distinct sources. Be efficient: stop once the core questions are answered.",
+	config.DepthStandard: "Aim for 12–20 strong findings drawn from at least 10 distinct sources of at least three types, covering every workstream question.",
+	config.DepthDeep:     "Aim for 20–35 strong findings drawn from at least 18 distinct sources of at least four types. Pursue primary sources for every important figure, corroborate headline numbers, and cover secondary questions.",
 }
 
 func (o *Orchestrator) researchSpec(st *state, j researchJob) taskSpec {
@@ -168,7 +168,57 @@ func (o *Orchestrator) researchSpec(st *state, j researchJob) taskSpec {
 	return taskSpec{
 		ID: j.ID, Role: j.Workstream.Role, Stage: run.StageResearch, Schema: "research",
 		Objective: obj.String(), Context: ctxb.String(), Constraints: cons, Tools: webTools, Artifact: j.Artifact,
+		SearchQueries: searchQueries(j.Workstream, p.Title),
 	}
+}
+
+// searchQueries are the web searches Boku runs for providers without web
+// tools: the workstream's questions, then its objective. A question that
+// does not name the subject ("What are the trade-offs of each approach?")
+// gets the report title appended, or the search drifts off topic.
+func searchQueries(w Workstream, title string) []string {
+	var qs []string
+	add := func(q string) {
+		if q = strings.TrimSpace(q); q != "" && len(qs) < 5 {
+			if title != "" && sharedWords(q, title) < 2 {
+				q += " " + title
+			}
+			qs = append(qs, q)
+		}
+	}
+	for _, q := range w.Questions {
+		add(q)
+	}
+	add(w.Objective)
+	return qs
+}
+
+var stopWords = map[string]bool{
+	"the": true, "and": true, "are": true, "how": true, "what": true, "for": true, "with": true, "does": true,
+	"which": true, "why": true, "who": true, "its": true, "their": true, "from": true, "this": true, "that": true,
+	"each": true, "has": true, "have": true, "was": true, "were": true, "can": true, "into": true, "between": true,
+}
+
+// sharedWords counts distinct significant words that appear in both strings.
+func sharedWords(a, b string) int {
+	words := func(s string) map[string]bool {
+		m := map[string]bool{}
+		for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+		}) {
+			if len(w) >= 3 && !stopWords[w] {
+				m[w] = true
+			}
+		}
+		return m
+	}
+	wb, n := words(b), 0
+	for w := range words(a) {
+		if wb[w] {
+			n++
+		}
+	}
+	return n
 }
 
 // decode unmarshals an artifact written by runTask.

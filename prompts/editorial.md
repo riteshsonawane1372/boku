@@ -39,10 +39,38 @@ publicly documented" or "no source reviewed for this report states…" instead.
   never a key finding or a headline number.
 - Where evidence is missing or contested, say so plainly.
 
+### Shape the report to the request
+
+The report's form follows the original request and the plan's
+`report_shape`, not a fixed template. Honour anything the request says about
+format, length, audience, tone or structure ("one page", "compare", "for the
+board", "step by step", "just the numbers"). Choose accordingly:
+
+- `summary_title`, `key_findings_title`, `conclusion_title`: optional
+  headings for the fixed parts when the defaults (Executive summary, Key
+  findings, Conclusion) do not fit — e.g. "The answer", "Verdict",
+  "Recommendation", "What to do next", "At a glance". Keep them short.
+- `key_findings` and `conclusion` may be empty lists when the form does not
+  need them (a brief whose summary already states the findings; a how-to that
+  ends with its last step). `executive_summary` is always required.
+- `layout`: `compact` for briefs, one-pagers and short answers (no cover page
+  or contents; sections flow on), `full` for full reports.
+- Sections follow the shape: a comparison opens with its comparison table; a
+  decision memo opens with the recommendation and the options; a timeline
+  question is ordered chronologically.
+
 ### Depth and length
 
-Research depth for this run is {{.Depth}}. Match the report to it, as far as
-the evidence supports; never pad thin evidence to reach a target.
+Research depth for this run is {{.Depth}} and the report mode is {{.Mode}}.
+Match the report to them, as far as the evidence supports; never pad thin
+evidence to reach a target.
+{{if ne .Mode "full"}}
+This is a **{{.Mode}} report**: write 2–4 body sections of 1–3 paragraphs
+each, an executive summary of 1–3 paragraphs (100–250 words), 3–5 key
+findings or none, and 2 or more exhibits. Use `layout: compact`. Brevity
+beats coverage; keep only what answers the request.
+{{end}}
+For full reports:
 
 | Depth | Body sections | Paragraphs per section | Charts, tables and diagrams |
 | --- | --- | --- | --- |
@@ -56,11 +84,13 @@ say what the reader should take from it, not just that it exists.
 ### Structure
 
 - `title`, `subtitle`, `report_type`: from the synthesis.
-- `executive_summary`: 3–6 paragraphs (roughly 250–600 words) that stand
-  alone: the answer, the evidence for it with the headline numbers, the main
-  uncertainty, and what it means for the audience. Cite as in the body.
-- `key_findings`: 4–7 items; `headline` is one declarative sentence with a
-  number where one exists, `detail` one or two sentences with citations.
+- `executive_summary`: 3–6 paragraphs (roughly 250–600 words; shorter for
+  short reports) that stand alone: the answer, the evidence for it with the
+  headline numbers, the main uncertainty, and what it means for the
+  audience. Cite as in the body.
+- `key_findings`: usually 4–7 items; `headline` is one declarative sentence
+  with a number where one exists, `detail` one or two sentences with
+  citations.
 - `sections`: follow the synthesis outline and build every visual it lists
   that the data supports. Each section has a short, plain title (no
   numbering; the renderer numbers sections) and `blocks`:
@@ -75,7 +105,8 @@ say what the reader should take from it, not just that it exists.
   lessons — as subheadings and paragraphs within a section, with a results
   table or chart when before/after figures exist.
 - `conclusion`: 2–3 paragraphs on implications, recommendations where the
-  evidence supports them, and what to watch — not a recap.
+  evidence supports them, and what to watch — not a recap. Title it to fit
+  (`conclusion_title`).
 - Do not write a sources list, methodology or appendix of evidence; they are
   generated from the evidence store.
 

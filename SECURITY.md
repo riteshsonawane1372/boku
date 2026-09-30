@@ -32,6 +32,27 @@ Each agent is a separate `claude -p` process started with:
 Agents never write files. They return JSON that Claude Code validates
 against a schema; Boku writes it to disk.
 
+### Ollama and OpenAI-compatible providers
+
+These models have no tools at all: they receive text and return JSON. Boku
+itself performs the web searches and page fetches for them (`agent.Web`):
+
+- Page fetches use a client that refuses loopback, private, link-local,
+  CGNAT and unspecified addresses, including after redirects, so an
+  untrusted result URL cannot reach services on your machine or network.
+  (The search request goes to the configured engine, which may be a local
+  SearXNG.)
+- Only `http`/`https`, at most 3 MB per page, HTML or plain text; the page
+  text is truncated and passed as data inside `<source>` tags with an
+  instruction not to follow instructions in it.
+- Sources in the model's output are re-grounded against the fetched pages:
+  a URL the model invents is dropped, and findings citing it are rejected.
+- The API key is read from the environment variable named by
+  `agents.api_key_env` and sent only to `agents.endpoint`.
+
+The local formatter can only replace a passage when its finding citations
+and numbers are unchanged.
+
 ### Output safety
 
 - All agent text is HTML-escaped by the renderer; agents cannot inject markup,

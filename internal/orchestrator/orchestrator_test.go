@@ -31,9 +31,13 @@ type fakeAgent struct {
 	factStatus func(round int) string
 	// badCitation makes the first editorial draft cite a missing finding.
 	badCitation bool
+	// cliches makes the first editorial draft use generic phrasing.
+	cliches bool
+	// queries records SearchQueries per task ID.
+	queries map[string][]string
 }
 
-func newFake() *fakeAgent { return &fakeAgent{calls: map[string]int{}} }
+func newFake() *fakeAgent { return &fakeAgent{calls: map[string]int{}, queries: map[string][]string{}} }
 
 func (f *fakeAgent) count(id string) int {
 	f.mu.Lock()
@@ -57,6 +61,7 @@ func (f *fakeAgent) Run(ctx context.Context, t agent.Task) (agent.Result, error)
 	f.mu.Lock()
 	f.calls[t.ID]++
 	call := f.calls[t.ID]
+	f.queries[t.ID] = t.SearchQueries
 	f.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return agent.Result{}, err
@@ -116,11 +121,36 @@ func (f *fakeAgent) Run(ctx context.Context, t agent.Task) (agent.Result, error)
 			cite = "F999"
 		}
 		for _, id := range ids {
-			if id == "F002" {
+			if id == "F002" && f.roleCalls("factcheck") > 0 {
 				return agent.Result{}, errors.New("rejected finding F002 leaked into editorial corpus")
 			}
 		}
-		out = document(cite, ids)
+		doc := document(cite, ids)
+		if f.cliches && !strings.Contains(t.ID, "rev") {
+			secs := doc["sections"].([]map[string]any)
+			blocks := secs[0]["blocks"].([]map[string]any)
+			blocks[0]["text"] = fmt.Sprintf("In today's rapidly evolving landscape, organisations delve into training at 41 percent [%s].", ids[0])
+			doc["conclusion"] = []string{fmt.Sprintf("It is important to note that adoption will seamlessly continue [%s].", ids[2])}
+			doc["key_findings"].([]map[string]any)[0]["detail"] = fmt.Sprintf("Cutting-edge metric one reached 41 percent [%s].", ids[0])
+		}
+		out = doc
+	case t.Role == agent.RoleFormatter:
+		var ps []struct {
+			ID   string `json:"id"`
+			Text string `json:"text"`
+		}
+		_ = json.Unmarshal([]byte(t.Inputs[0].Content), &ps)
+		for i := range ps {
+			txt := ps[i].Text
+			for _, c := range []string{"In today's rapidly evolving landscape, organisations delve into", "It is important to note that ", " seamlessly"} {
+				txt = strings.ReplaceAll(txt, c, map[bool]string{true: "Organisations run", false: ""}[strings.HasPrefix(c, "In")])
+			}
+			if strings.HasPrefix(ps[i].ID, "finding-") {
+				txt = strings.Replace(txt, "Cutting-edge metric", "Metric", 1) + " An invented 99 percent." // must be rejected: new number
+			}
+			ps[i].Text = txt
+		}
+		out = map[string]any{"passages": ps}
 	default:
 		return agent.Result{}, fmt.Errorf("unexpected role %q", t.Role)
 	}
@@ -247,7 +277,7 @@ func TestPipelineEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pipeline failed: %v", err)
 	}
-	if len(out.Outputs) != len(cfg.Report.Formats) {
+	if len(out.Outputs) != len(cfg.Report.Formats)+1 || !strings.HasSuffix(out.Outputs[len(out.Outputs)-1], ".references.json") {
 		t.Fatalf("outputs = %v", out.Outputs)
 	}
 	for _, p := range out.Outputs {
@@ -272,7 +302,7 @@ func TestPipelineEndToEnd(t *testing.T) {
 	}
 	for _, rel := range []string{"plan.json", "plan.md", "research/primary.json", "evidence/sources.json", "evidence/findings.json",
 		"factcheck/round-1.json", "synthesis/synthesis.json", "synthesis/synthesis.md", "report/document.json",
-		"report/report.json", "report/gates.json", "report/report.html", "agents/planner.raw.json", "logs/boku.log"} {
+		"report/report.json", "report/gates.json", "report/report.html", "report/references.json", "agents/planner.raw.json", "logs/boku.log"} {
 		if !r.Exists(rel) {
 			t.Errorf("artifact %s missing", rel)
 		}
@@ -286,6 +316,74 @@ func TestPipelineEndToEnd(t *testing.T) {
 	}
 	if !strings.Contains(string(html), "No cost data") {
 		t.Error("synthesis gaps missing from limitations")
+	}
+	if strings.Contains(string(html), `id="sources"`) || !strings.Contains(string(html), ".references.json") {
+		t.Error("source list must stay out of the report unless include_references is set")
+	}
+	if q := fake.queries["research-primary"]; len(q) == 0 || !strings.HasPrefix(q[0], "q ") || !strings.Contains(q[0], "Kubernetes") {
+		t.Errorf("research task missing search queries: %v", q)
+	}
+}
+
+func TestSaveRefIncludesSources(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Report.IncludeReferences = true
+	r := newRun(t, cfg)
+	if _, err := newOrchestrator(t, cfg, newFake()).Execute(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	html, _ := os.ReadFile(r.Path("report", "report.html"))
+	if !strings.Contains(string(html), `id="sources"`) || !strings.Contains(string(html), "Evidence register") {
+		t.Error("--save-ref should put sources and evidence register in the report")
+	}
+}
+
+func TestQuickModeSkipsFactCheck(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.ApplyMode(config.ModeQuick)
+	fake := newFake()
+	r := newRun(t, cfg)
+	if _, err := newOrchestrator(t, cfg, fake).Execute(context.Background(), r); err != nil {
+		t.Fatalf("quick run failed: %v", err)
+	}
+	if fake.roleCalls("factcheck") != 0 || r.Exists("factcheck/round-1.json") {
+		t.Error("fact checker ran in quick mode")
+	}
+	var rep struct {
+		Layout string `json:"layout"`
+	}
+	_, _ = r.ReadJSON("report/report.json", &rep)
+	if rep.Layout != "compact" {
+		t.Errorf("layout = %q", rep.Layout)
+	}
+	html, _ := os.ReadFile(r.Path("report", "report.html"))
+	if !strings.Contains(string(html), "have not been independently verified") {
+		t.Error("methodology should say claims were not fact-checked")
+	}
+}
+
+func TestLocalFormatterFixesStyleWithoutRevision(t *testing.T) {
+	cfg := testConfig(t)
+	fake := newFake()
+	fake.cliches = true
+	r := newRun(t, cfg)
+	o := newOrchestrator(t, cfg, fake)
+	o.Formatter = fake
+	if _, err := o.Execute(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	if fake.roleCalls("formatter") != 1 || fake.roleCalls("editorial-rev") != 0 {
+		t.Errorf("formatter calls %d, editorial revisions %d", fake.roleCalls("formatter"), fake.roleCalls("editorial-rev"))
+	}
+	if !r.Exists("report/document-polished.json") || latestDocument(&state{run: r}) != "report/document-polished.json" {
+		t.Fatal("polished draft not used")
+	}
+	html, _ := os.ReadFile(r.Path("report", "report.html"))
+	if strings.Contains(string(html), "delve") || strings.Contains(string(html), "seamlessly") {
+		t.Error("generic phrasing survived the formatter")
+	}
+	if strings.Contains(string(html), "99 percent") {
+		t.Error("formatter rewrite that added a number was accepted")
 	}
 }
 
@@ -519,8 +617,17 @@ func TestRenderFromArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Outputs) != 2 {
+	if len(out.Outputs) != 3 {
 		t.Errorf("outputs = %v", out.Outputs)
+	}
+}
+
+func TestSearchQueriesKeepTheSubject(t *testing.T) {
+	qs := searchQueries(Workstream{Objective: "Compare MIG and time-slicing on Kubernetes", Questions: []string{
+		"What are the trade-offs of each approach?", "How does MIG isolation work on Kubernetes GPU nodes?",
+	}}, "GPU Sharing on Kubernetes")
+	if len(qs) != 3 || !strings.HasSuffix(qs[0], "GPU Sharing on Kubernetes") || strings.Contains(qs[1], "GPU Sharing on Kubernetes") {
+		t.Errorf("queries = %q", qs)
 	}
 }
 

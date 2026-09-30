@@ -15,6 +15,9 @@ import (
 // critic reviews again — up to research.max_iterations follow-up rounds.
 // It ends with the research and fact-check gates.
 func (o *Orchestrator) stageFactCheck(ctx context.Context, st *state) (string, error) {
+	if !o.Config.Research.FactCheck {
+		return o.skipFactCheck(st)
+	}
 	maxRounds := o.Config.Research.MaxIterations + 1
 	for round := 1; round <= maxRounds; round++ {
 		rel := fmt.Sprintf("factcheck/round-%d.json", round)
@@ -83,6 +86,22 @@ func (o *Orchestrator) stageFactCheck(ctx context.Context, st *state) (string, e
 	}
 	stats := st.store.Stats()
 	return fmt.Sprintf("%d round(s), final status %s; %d usable findings, %d rejected", st.fcRounds, st.lastFC.Status, stats.Usable, stats.Rejected), nil
+}
+
+// skipFactCheck accepts the corpus unreviewed (quick mode) and still runs the
+// research gate.
+func (o *Orchestrator) skipFactCheck(st *state) (string, error) {
+	o.Log.Warn("fact-checking is off for this run; claims are not independently verified")
+	validation.AcceptPending(st.store)
+	if err := o.saveEvidence(st); err != nil {
+		return "", err
+	}
+	rg := validation.ResearchGate(st.store, o.Config.MinSourcesFor())
+	o.reportGate(st, rg)
+	if !rg.Passed {
+		return "", &ErrBlocked{Gate: rg.Name, Errors: rg.Errors}
+	}
+	return fmt.Sprintf("skipped; %d usable findings", st.store.Stats().Usable), nil
 }
 
 func (o *Orchestrator) factCheckSpec(st *state, round int, rel string) taskSpec {

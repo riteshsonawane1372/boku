@@ -49,5 +49,14 @@ which organisations publish the data the report will need).
   "comparison table: managed offerings by provider, features and list price",
   "architecture diagram: components and data flow of the serving stack",
   "timeline: regulatory milestones 2023–2026". Aim for 4–8.
+- `report_shape`: one or two sentences on the form this request calls for,
+  read from its wording and purpose. Honour anything the request says about
+  format, length, audience or structure. Examples: "decision memo:
+  recommendation first, options compared in one matrix, risks, next steps";
+  "comparison: side-by-side table up front, then one section per dimension,
+  verdict"; "technical deep dive: architecture, how it works, trade-offs,
+  operations"; "brief: two pages, answer and the evidence for it";
+  "market analysis: size and growth, segments, players, outlook".
 - `report_outline`: the sections the final report should probably have,
-  in order. Include only sections this topic needs.
+  in order, fitted to `report_shape`. Include only sections this topic
+  needs; do not force a generic outline onto a specific question.

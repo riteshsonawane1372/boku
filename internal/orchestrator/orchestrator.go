@@ -42,7 +42,9 @@ type Orchestrator struct {
 	Prompts *prompts.Library
 	Log     *logx.Logger
 	Printer Printer
-	Version string
+	// Formatter runs style fixes on the local model; nil disables the pass.
+	Formatter agent.Agent
+	Version   string
 	// Now is the clock; defaults to time.Now.
 	Now func() time.Time
 	// Backoff overrides retry backoff (tests).
@@ -69,18 +71,20 @@ type Outcome struct {
 
 // state is the per-execution working set.
 type state struct {
-	run      *run.Run
-	runner   *agent.Runner
-	store    *research.Store
-	ingested map[string]bool
-	asOf     time.Time // the run's reference date for freshness
-	plan     *Plan
-	lastFC   *validation.FactCheck
-	fcRounds int
-	failed   []string // research tasks that failed permanently
-	gates    []validation.Gate
-	docPath  string         // final editorial draft
-	report   *report.Report // built report
+	run       *run.Run
+	runner    *agent.Runner
+	fmtRun    *agent.Runner // local formatter; nil when unavailable
+	store     *research.Store
+	ingested  map[string]bool
+	asOf      time.Time // the run's reference date for freshness
+	plan      *Plan
+	lastFC    *validation.FactCheck
+	fcRounds  int
+	failed    []string // research tasks that failed permanently
+	gates     []validation.Gate
+	docPath   string         // final editorial draft
+	autoCited bool           // quick mode added citations by text matching
+	report    *report.Report // built report
 }
 
 const totalSteps = 7
@@ -101,6 +105,9 @@ func (o *Orchestrator) Execute(ctx context.Context, r *run.Run) (*Outcome, error
 			o.Log.Warn("retrying agent", "task", t.ID, "attempt", attempt+1, "error", firstLine(err.Error()))
 		},
 	}
+	if o.Formatter != nil {
+		st.fmtRun = &agent.Runner{Agent: o.Formatter, MaxRetries: 1, Backoff: o.Backoff}
+	}
 	if f, err := os.OpenFile(r.Path("logs", "boku.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 		defer f.Close()
 		o.Log.AttachFile(f)
@@ -108,7 +115,7 @@ func (o *Orchestrator) Execute(ctx context.Context, r *run.Run) (*Outcome, error
 	}
 	_ = r.Update(func(m *run.Manifest) {
 		m.Status, m.Error, m.BokuVersion = run.StatusRunning, "", o.Version
-		for _, role := range append([]string{agent.RolePlanner, agent.RoleFactChecker, agent.RoleSynthesizer, agent.RoleEditorial}, agent.ResearchRoles...) {
+		for _, role := range agent.AllRoles {
 			m.Prompts[role] = o.Prompts.Version(role)
 		}
 	})
@@ -191,7 +198,11 @@ type taskSpec struct {
 	Constraints []string
 	Inputs      []agent.Artifact
 	Tools       []string
-	Artifact    string // run-relative path the output is written to
+	// SearchQueries seed retrieval for providers without web tools;
+	// SearchPages caps the pages fetched (0 = configured default).
+	SearchQueries []string
+	SearchPages   int
+	Artifact      string // run-relative path the output is written to
 }
 
 var webTools = []string{agent.ToolWebSearch, agent.ToolWebFetch}
@@ -203,6 +214,7 @@ func (o *Orchestrator) runTask(ctx context.Context, st *state, spec taskSpec) (j
 		Today:         st.asOf.Format("2006-01-02"),
 		FreshnessDays: o.Config.Research.FreshnessDays,
 		Depth:         string(o.Config.Research.Depth),
+		Mode:          string(o.Config.Report.Mode),
 	})
 	if err != nil {
 		return nil, err
@@ -215,15 +227,25 @@ func (o *Orchestrator) runTask(ctx context.Context, st *state, spec taskSpec) (j
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return nil, err
 	}
+	runner, model := st.runner, o.Config.ModelFor(spec.Role)
+	if spec.Role == agent.RoleFormatter || o.Config.IsLocalRole(spec.Role) {
+		model = "" // the local model is configured on its runtime
+	}
+	if spec.Role == agent.RoleFormatter {
+		if st.fmtRun == nil {
+			return nil, errors.New("no local formatter configured")
+		}
+		runner = st.fmtRun
+	}
 	task := agent.Task{
 		ID: spec.ID, Role: spec.Role, Objective: spec.Objective, Context: spec.Context,
 		Inputs: spec.Inputs, Constraints: spec.Constraints, Instructions: sys, Schema: schema,
-		Tools: spec.Tools, Model: o.Config.ModelFor(spec.Role),
+		Tools: spec.Tools, SearchQueries: spec.SearchQueries, SearchPages: spec.SearchPages, Model: model,
 		Timeout: time.Duration(o.Config.Agents.Timeout), WorkDir: workDir,
 	}
 	o.Log.Debug("agent started", "task", spec.ID, "role", spec.Role)
 	start := o.Now()
-	res, err := st.runner.Run(ctx, task)
+	res, err := runner.Run(ctx, task)
 	if len(res.Raw) > 0 {
 		_ = st.run.WriteFile(filepath.Join("agents", spec.ID+".raw.json"), res.Raw)
 	}

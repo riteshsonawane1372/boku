@@ -362,3 +362,40 @@ ol.sources .url { font: 400 7pt var(--mono); color: var(--muted); word-break: br
 .appendix-letter { font-variant-numeric: lining-nums; }
 
 .small { font-size: 8.5pt; color: var(--muted); }
+
+/* Compact layout: a title block instead of cover and contents, and no forced
+   page break before each chapter. Used for short and quick reports and when
+   the request asks for a brief. */
+.compact-cover {
+  border-top: 3pt solid var(--accent);
+  padding-top: 6mm;
+  margin-bottom: 8mm;
+}
+.compact-cover .kicker {
+  font: 600 7.8pt var(--sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.compact-cover h1 { font: 600 21pt/1.15 var(--sans); color: var(--ink); margin: 3mm 0 2mm; }
+.compact-cover .subtitle { font: 400 12pt/1.4 var(--serif); color: var(--muted); }
+.compact-cover .meta {
+  margin-top: 4mm;
+  padding-top: 2.5mm;
+  border-top: 0.6pt solid var(--rule);
+  font: 400 8pt var(--sans);
+  color: var(--faint);
+}
+.layout-compact .chapter { break-before: auto; margin-top: 10mm; }
+.layout-compact .chapter:first-of-type { margin-top: 0; }
+.layout-compact .chapter > h1 { font-size: 15pt; }
+.layout-compact #key-findings > h1 { display: none; }
+
+.refs-note {
+  margin-top: 10mm;
+  padding-top: 3mm;
+  border-top: 0.5pt solid var(--rule);
+  font: 400 7.5pt/1.5 var(--sans);
+  color: var(--faint);
+}
+.refs-note code { font: 400 7pt var(--mono); }

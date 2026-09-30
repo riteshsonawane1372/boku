@@ -25,7 +25,8 @@ Nothing is copied to the output directory unless every gate passed.
 cmd/boku              CLI: flags, config layering, commands
 internal/config       YAML config, defaults, validation
 internal/agent        Agent interface, Task/Result contract, Claude Code adapter,
-                      retry + budget runner
+                      ChatModel (Ollama / OpenAI-compatible), Web retrieval,
+                      Router (per-role providers), retry + budget runner
 internal/run          run directory, manifest, atomic artifact I/O
 internal/research     evidence model: sources, findings, tiers, freshness, store
 internal/validation   fact-check application, quality gates
@@ -65,7 +66,31 @@ claude -p --output-format json --restricted --tools WebSearch,WebFetch
 
 Errors are classified (`unavailable`, `timeout`, `malformed_output`,
 `runtime`, `budget`) so `agent.Runner` knows what to retry. A new provider
-only needs to implement `Agent` and be added to `newAgent` in `cmd/boku`.
+only needs to implement `Agent` and be added to `newAgents` in `cmd/boku`.
+
+`agent.ChatModel` implements it for Ollama (`/api/chat`) and any
+OpenAI-compatible endpoint (`/chat/completions`). These models have no web
+tools, so when a task grants web tools and lists `SearchQueries`, Boku runs
+the searches itself (`agent.Web`: DuckDuckGo or SearXNG), fetches pages
+through a client that refuses non-public addresses, fits the page text to
+the model's context window, and passes the pages as numbered sources. The
+output's `sources` array is then re-grounded against the fetched pages, so a
+model cannot cite a URL Boku did not fetch.
+
+`agent.Router` sends each role to its runtime: `local.roles` (all roles in
+`--quick`) go to the local Ollama model, everything else to
+`agents.provider`. The orchestrator also holds an optional `Formatter`
+(the local model) that rewrites style-flagged passages of the editorial
+draft; a rewrite is kept only if its citation markers and numbers are
+unchanged.
+
+## Report modes and references
+
+`report.mode` (`--short`, `--quick`) adjusts depth, workstreams, fact-check
+rounds, layout and routing through `config.ApplyMode` before explicit flags
+are applied. Every published report gets `<slug>.references.json`
+(`render.ReferencesJSON`); the source list and evidence register render into
+the document only when `report.include_references` (`--save-ref`) is set.
 
 ## Concurrency
 

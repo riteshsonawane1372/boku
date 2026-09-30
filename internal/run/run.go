@@ -140,6 +140,8 @@ func Open(dir string) (*Run, error) {
 		return nil, err
 	}
 	r := &Run{Dir: dir}
+	// Settings added after a run was created keep their defaults.
+	r.m.Config = config.Default()
 	if err := json.Unmarshal(b, &r.m); err != nil {
 		return nil, fmt.Errorf("manifest: %w", err)
 	}

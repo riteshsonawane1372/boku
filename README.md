@@ -48,6 +48,90 @@ Cost: $7.73
 That is a real `--depth quick` run: 11 agent calls, 72 findings from 75
 sources (56 tier 1), 2 claims rejected by the fact checker, about 20 minutes.
 
+**Website and docs: <https://boku.riteshsonawane.com/>** · [Documentation](https://boku.riteshsonawane.com/docs.html)
+(source in `site/`; preview locally with `make site && python3 -m http.server -d _site 8000`).
+
+## Report modes
+
+No flag gives the default full report. Pick another mode per report:
+
+| Mode | Flag | What you get | Typical spend |
+| --- | --- | --- | --- |
+| Full | *(none)* | planner, up to 6 researchers, fact-check with follow-ups, cover, contents, methodology | $8–31 in the runs below |
+| Short | `--short` | 3 researchers, one fact-check round, a compact 3–8 page brief | ≈ $4–6 (estimate) |
+| Quick | `--quick` | every agent on a local Ollama model with Boku's own web search; no fact-check | $0 API spend |
+
+```bash
+boku report "Is Postgres 18 async I/O worth enabling?" --short
+boku report "Main approaches to GPU sharing on Kubernetes" --quick          # needs `ollama pull llama3.1:8b`
+boku report "…" --quick --local-model qwen2.5:14b                          # a bigger local model
+```
+
+Quick reports are a first pass: nothing checks a small model's claims (the
+methodology appendix says so), although it can still only cite pages Boku
+actually fetched.
+
+## References file
+
+Citations in the report are numbers. The sources behind them are always
+written next to the report as compact JSON, `<report>.references.json`
+(`references`: numbered sources; `evidence`: every cited finding with its
+status and reference numbers), which is cheap to hand to another model.
+The PDF, HTML and Markdown leave the source list and evidence register out
+and name the file instead. To print them in the document too:
+
+```bash
+boku report "…" --save-ref
+boku render runs/<run-id> --save-ref     # re-render an existing run, no cost
+```
+
+## Report shape follows the request
+
+The planner writes a `report_shape` from your wording ("decision memo",
+"comparison", "brief"…), and the synthesizer and editor get your original
+request with instructions to honour its format, length, audience and
+structure. The editor can rename the fixed parts (*Verdict*,
+*Recommendation*, *The answer*), drop key findings or the conclusion when
+the form does not need them, and choose a compact layout (title block, no
+cover or contents). `report.layout: full|compact` overrides its choice.
+
+## Custom models (config.yaml)
+
+Claude Code is the default. To run on another model, pass a config file;
+nothing changes unless you do:
+
+```yaml
+# config.yaml
+agents:
+  provider: openai                 # claude-code | ollama | openai (any OpenAI-compatible API)
+  endpoint: http://localhost:8000/v1
+  model: Qwen/Qwen2.5-72B-Instruct
+  api_key_env: OPENROUTER_API_KEY  # env var name; empty for a local server
+  price_input_per_mtok: 0.35       # optional, for cost tracking and --max-cost
+  price_output_per_mtok: 0.40
+```
+
+```bash
+boku report "How are banks deploying generative AI?" --config config.yaml
+```
+
+These models have no web tools, so Boku searches (DuckDuckGo, or your
+SearXNG) and fetches pages itself, fits them to the model's context, and
+gives them to the model as numbered sources. Output sources are then
+re-grounded: a cited source must be a page Boku fetched, with its URL and
+title taken from the fetch. Fetches refuse private and loopback addresses.
+See [`examples/custom-model.yaml`](examples/custom-model.yaml) and
+[`examples/local-ollama.yaml`](examples/local-ollama.yaml).
+
+### Local formatting pass
+
+When Ollama is reachable, a small local model (`local.model`, default
+`llama3.1:8b`) fixes style-only problems in the editorial draft (generic
+phrasing, stray Markdown, repeated sentences) instead of another full
+revision by the main model. A rewrite is accepted only if it keeps exactly
+the same citation markers and numbers. Disable with `local.format: false`;
+route more roles locally with `local.roles: [synthesizer, formatter]`.
+
 ## Why Boku exists
 
 Language models write fluent reports that are hard to trust: numbers without
@@ -145,6 +229,9 @@ Flags for `boku report`:
 
 | Flag | Meaning |
 | --- | --- |
+| `--short`, `--quick`, `--mode full\|short\|quick` | report mode (see above) |
+| `--save-ref` | include the source list and evidence register in the report |
+| `--local-model TAG` | Ollama model for `--quick` and formatting |
 | `--depth quick\|standard\|deep` | how much research to do |
 | `--agents N` | maximum research workstreams the planner may create |
 | `--parallel N` | maximum agents running at once |
@@ -300,9 +387,12 @@ Start with `boku init` to get a commented `boku.yaml`.
 | demand a broader evidence base | `--min-sources 30` (`research.min_sources`) |
 | slow agents / long research | `agents.timeout: 30m` |
 
-Depth changes how many findings each researcher aims for (quick 6–10,
-standard 10–18, deep 18–30) and the research gate's source target
-(5 / 10 / 20).
+Depth changes how many findings and distinct sources each researcher aims
+for (quick 6–10 from 6+ sources, standard 12–20 from 10+, deep 20–35 from
+18+) and the research gate's source target (8 / 20 / 35). Researchers are
+told to search each question several ways, mix source types, follow
+citations upstream to the original, corroborate headline numbers, and look
+for the last 90 days.
 
 ### Models
 
@@ -385,7 +475,7 @@ automatically or `--config path`. CLI flags override the file.
 
 ```yaml
 agents:
-  provider: claude-code
+  provider: claude-code     # claude-code | ollama | openai
   model: ""                 # Claude Code default
   role_models: {editorial: opus}
   max_parallel: 4
@@ -400,6 +490,9 @@ research:
   max_iterations: 2
 
 report:
+  mode: full                # full | short | quick
+  layout: auto              # auto | full | compact
+  include_references: false # --save-ref
   formats: [pdf]
   charts: true
   diagrams: true
@@ -423,7 +516,8 @@ runs/2026-09-23T074500-kubernetes-used-ai-infrastructure/
   evidence/            sources.json, findings.json, findings.md
   factcheck/           round-1.json, round-2.json, …
   synthesis/           synthesis.json, synthesis.md
-  report/              document*.json (drafts), report.json, gates.json, report.html, report.md
+  report/              document*.json (drafts, *-polished by the local formatter), report.json,
+                       references.json, gates.json, report.html, report.md
   output/              the PDF that passed the gates
   agents/              raw agent responses
   logs/boku.log
@@ -454,8 +548,8 @@ rendering. See [docs/development.md](docs/development.md) and
 
 - Table of contents with page numbers (two-pass render)
 - Per-section editorial passes for very long reports
-- Source fetching and archiving by Boku itself (snapshot the pages cited)
-- Additional agent providers behind `agent.Agent` (Anthropic API, OpenAI, local models)
+- Archiving the pages cited (snapshots alongside the references file)
+- Anthropic API provider (without Claude Code)
 - DOCX renderer
 - Structured JSON logs
 

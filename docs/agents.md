@@ -56,3 +56,18 @@ prompt version produced a run.
 - Keep formatting out: the renderer owns layout.
 - Test prompt changes on the same topic and compare runs' `evidence/findings.md`
   and `report/gates.json`.
+
+## Formatter (local)
+
+`formatter` is not a research role. It runs on the local Ollama model and
+receives only the passages of an editorial draft that have style problems,
+with the problems listed. Its rewrites are accepted only when they keep the
+same finding citations and numbers (`orchestrator/polish.go`). Prompt:
+`prompts/formatter.md`; schema: `prompts/schemas/formatter.json`.
+
+## Report shape
+
+The planner returns `report_shape` (the form the request calls for). The
+synthesizer and editor receive the original request in the plan brief and
+shape the outline, headings (`summary_title`, `key_findings_title`,
+`conclusion_title`) and `layout` to it.

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/riteshsonawane1372/boku/internal/agent"
+	"github.com/riteshsonawane1372/boku/internal/config"
 	"github.com/riteshsonawane1372/boku/internal/run"
 )
 
@@ -23,6 +24,7 @@ type Plan struct {
 	Workstreams       []Workstream `json:"workstreams"`
 	RequiredSources   []string     `json:"required_sources"`
 	Deliverables      []string     `json:"deliverables"`
+	ReportShape       string       `json:"report_shape"`
 	ReportOutline     []string     `json:"report_outline"`
 }
 
@@ -83,7 +85,10 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 		topic := st.run.Manifest().Topic
 		cons := []string{
 			fmt.Sprintf("Create at most %d workstreams; fewer is better when the question is narrow.", o.Config.Agents.MaxAgents),
-			fmt.Sprintf("Research depth is %s.", o.Config.Research.Depth),
+			fmt.Sprintf("Research depth is %s; report mode is %s.", o.Config.Research.Depth, o.Config.Report.Mode),
+		}
+		if o.Config.Report.Mode != config.ModeFull {
+			cons = append(cons, "This is a short report: plan 3–5 research questions and a 2–4 section outline that answer the request directly.")
 		}
 		if len(o.Config.Research.Sources) > 0 {
 			cons = append(cons, "The requester suggests these sources or source types: "+strings.Join(o.Config.Research.Sources, "; ")+".")
@@ -92,7 +97,7 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 			ID: "planner", Role: agent.RolePlanner, Stage: run.StagePlan, Schema: "planner",
 			Objective:   "Create the research plan for this request:\n\n" + topic,
 			Context:     fmt.Sprintf("Today is %s. Information within %d days counts as current.", st.asOf.Format("2 January 2006"), o.Config.Research.FreshnessDays),
-			Constraints: cons, Tools: []string{agent.ToolWebSearch}, Artifact: rel,
+			Constraints: cons, Tools: []string{agent.ToolWebSearch}, SearchQueries: []string{topic}, SearchPages: 4, Artifact: rel,
 		})
 		if err != nil {
 			return "", fmt.Errorf("planner: %w", err)
@@ -127,8 +132,12 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 
 func planMarkdown(p Plan) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n_%s_\n\n**Objective.** %s\n\n**Type:** %s · **Audience:** %s · **Time sensitivity:** %s\n\n## Research questions\n\n",
+	fmt.Fprintf(&b, "# %s\n\n_%s_\n\n**Objective.** %s\n\n**Type:** %s · **Audience:** %s · **Time sensitivity:** %s\n\n",
 		p.Title, p.Subtitle, p.Objective, p.ReportType, p.Audience, p.TimeSensitivity)
+	if p.ReportShape != "" {
+		fmt.Fprintf(&b, "**Shape:** %s\n\n", p.ReportShape)
+	}
+	b.WriteString("## Research questions\n\n")
 	for _, q := range p.ResearchQuestions {
 		fmt.Fprintf(&b, "- %s\n", q)
 	}

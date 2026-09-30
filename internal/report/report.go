@@ -21,6 +21,14 @@ type Document struct {
 	Sections         []Section    `json:"sections"`
 	Conclusion       []string     `json:"conclusion"`
 	Appendices       []Section    `json:"appendices,omitempty"`
+
+	// The editor shapes the report to the request: it may rename the fixed
+	// parts ("Verdict", "Recommendation", "TL;DR"), leave out key findings or
+	// the conclusion, and ask for a compact layout (a brief or one-pager).
+	SummaryTitle     string `json:"summary_title,omitempty"`
+	KeyFindingsTitle string `json:"key_findings_title,omitempty"`
+	ConclusionTitle  string `json:"conclusion_title,omitempty"`
+	Layout           string `json:"layout,omitempty"` // full | compact
 }
 
 type KeyFinding struct {
@@ -112,8 +120,40 @@ type Report struct {
 	Conclusion       []Block      `json:"conclusion"`
 	Sources          []Citation   `json:"sources"`
 	Appendices       []Section    `json:"appendices"`
+	// Evidence lists every cited finding with its status and sources. It is
+	// always written to the references file; the PDF shows it only when
+	// IncludeReferences is set.
+	Evidence []EvidenceEntry `json:"evidence,omitempty"`
+	// Labels are the headings of the fixed parts.
+	Labels Labels `json:"labels"`
+	// Layout is full (cover and contents) or compact (title block, no cover).
+	Layout string `json:"layout"`
+	// IncludeReferences puts the numbered source list into the document.
+	IncludeReferences bool `json:"include_references"`
 	// Warnings are non-fatal problems found while building (dropped charts, …).
 	Warnings []string `json:"warnings,omitempty"`
+}
+
+// Layouts.
+const (
+	LayoutFull    = "full"
+	LayoutCompact = "compact"
+)
+
+// Labels are headings for the parts every report has.
+type Labels struct {
+	Summary     string `json:"summary"`
+	KeyFindings string `json:"key_findings"`
+	Conclusion  string `json:"conclusion"`
+}
+
+// EvidenceEntry is one cited finding in the references file.
+type EvidenceEntry struct {
+	ID      string `json:"id"`
+	Claim   string `json:"claim"`
+	Status  string `json:"status"`
+	AsOf    string `json:"as_of,omitempty"`
+	Sources []int  `json:"sources"`
 }
 
 type Metadata struct {
@@ -126,6 +166,8 @@ type Metadata struct {
 	Author     string    `json:"author,omitempty"`
 	Generator  string    `json:"generator"`
 	PageSize   string    `json:"page_size"`
+	// ReferencesFile is the name of the companion references JSON file.
+	ReferencesFile string `json:"references_file,omitempty"`
 }
 
 // Citation is an entry in the numbered source list.

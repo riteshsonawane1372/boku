@@ -97,6 +97,37 @@ var clichés = []string{
 
 var sentenceSplit = regexp.MustCompile(`[.!?]+\s+`)
 
+var markdownRe = regexp.MustCompile(`(?m)^#{1,6} |` + "```")
+
+// StyleProblems lists the style problems in one passage of report text:
+// generic phrasing and Markdown syntax.
+func StyleProblems(text string) []string {
+	var out []string
+	lower := strings.ToLower(text)
+	for _, c := range clichés {
+		if strings.Contains(lower, c) {
+			out = append(out, fmt.Sprintf("generic phrasing: %q", c))
+		}
+	}
+	if markdownRe.MatchString(text) {
+		out = append(out, "Markdown syntax")
+	}
+	return out
+}
+
+// Sentences splits text into lower-cased sentences of 8 or more words, the
+// unit the repetition check compares.
+func Sentences(text string) []string {
+	var out []string
+	for _, s := range sentenceSplit.Split(text, -1) {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if len(strings.Fields(s)) >= 8 {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // EditorialGate checks the built report: structure, citations, repetition,
 // and style. Build errors (unknown citations etc.) are errors here.
 func EditorialGate(r *report.Report, buildIssues []report.Issue) Gate {
@@ -112,10 +143,12 @@ func EditorialGate(r *report.Report, buildIssues []report.Issue) Gate {
 	if strings.TrimSpace(r.Metadata.Title) == "" {
 		g.errorf("report has no title")
 	}
+	// Key findings are optional: the editor may shape a report without them
+	// (a brief, a verdict, a how-to), but a long report should have them.
 	switch n := len(r.KeyFindings); {
-	case n == 0:
-		g.errorf("no key findings")
-	case n < 3:
+	case n == 0 && len(r.Sections) >= 5:
+		g.warnf("no key findings in a %d-section report", len(r.Sections))
+	case n > 0 && n < 3 && r.Layout != report.LayoutCompact:
 		g.warnf("only %d key findings", n)
 	}
 	switch n := len(r.Sections); {
@@ -134,7 +167,11 @@ func EditorialGate(r *report.Report, buildIssues []report.Issue) Gate {
 	if len(r.ExecutiveSummary) > 0 && !execCited {
 		g.errorf("executive summary cites no sources")
 	}
-	if w := len(strings.Fields(strings.Join(execText, " "))); w > 0 && w < 120 {
+	minWords := 120
+	if r.Layout == report.LayoutCompact {
+		minWords = 50
+	}
+	if w := len(strings.Fields(strings.Join(execText, " "))); w > 0 && w < minWords {
 		g.warnf("executive summary is short (%d words)", w)
 	} else if w > 1400 {
 		g.warnf("executive summary is long (%d words)", w)
@@ -222,7 +259,11 @@ func PDFGate(r *report.Report, c PDFCheck) Gate {
 		g.errorf("PDF was not generated")
 		return g.done()
 	}
-	if c.Pages < 3 {
+	if r.Layout == report.LayoutCompact {
+		if c.Pages < 1 {
+			g.errorf("PDF has no pages")
+		}
+	} else if c.Pages < 3 {
 		g.errorf("PDF has %d pages; expected cover, contents and body", c.Pages)
 	}
 	if len(c.EmptyPages) > 0 {

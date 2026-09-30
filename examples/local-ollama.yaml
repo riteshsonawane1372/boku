@@ -1,0 +1,25 @@
+# Everything on a local Ollama model: no API keys, no Claude Code tokens.
+# Same as `boku report "…" --quick`, but keeps fact-checking on and lets you
+# choose a larger model and deeper research.
+#
+#   ollama pull qwen2.5:14b
+#   boku report "What changed in the EU AI Act in 2026?" --config examples/local-ollama.yaml
+agents:
+  provider: ollama
+  endpoint: http://localhost:11434
+  model: qwen2.5:14b
+  context_tokens: 32768
+  max_parallel: 2              # a local GPU serves one or two requests well
+  timeout: 45m
+
+local:
+  model: qwen2.5:14b
+  format: true
+
+research:
+  depth: quick
+  fact_check: true
+
+report:
+  layout: compact
+  formats: [pdf, md]

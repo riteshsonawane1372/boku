@@ -29,6 +29,15 @@ func (i Issue) String() string { return i.Severity + ": " + i.Message }
 type BuildOptions struct {
 	Charts   bool
 	Diagrams bool
+	// Layout is auto, full or compact; auto follows the document's request.
+	Layout string
+	// IncludeReferences adds the source list and evidence register to the
+	// rendered document. They are in Report.Sources/Evidence either way.
+	IncludeReferences bool
+	// Lenient turns citations of unknown or rejected findings into warnings
+	// (the citation is dropped) instead of errors. Used for quick reports
+	// written by small local models.
+	Lenient bool
 	// Method is shown in the generated methodology appendix; nil omits it.
 	Method *Method
 }
@@ -65,6 +74,13 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 	}
 	r.Metadata.Subtitle = nonEmpty(r.Metadata.Subtitle, strings.TrimSpace(doc.Subtitle))
 	r.Metadata.ReportType = nonEmpty(r.Metadata.ReportType, nonEmpty(strings.TrimSpace(doc.ReportType), "Research Report"))
+	r.IncludeReferences = opt.IncludeReferences
+	r.Layout = resolveLayout(opt.Layout, doc.Layout)
+	r.Labels = Labels{
+		Summary:     label(doc.SummaryTitle, "Executive summary"),
+		KeyFindings: label(doc.KeyFindingsTitle, "Key findings"),
+		Conclusion:  label(doc.ConclusionTitle, "Conclusion"),
+	}
 
 	for _, p := range doc.ExecutiveSummary {
 		if strings.TrimSpace(p) != "" {
@@ -104,8 +120,11 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 	if opt.Method != nil {
 		r.Appendices = append(r.Appendices, b.methodAppendix(*opt.Method))
 	}
-	if reg := b.evidenceRegister(); len(reg.Blocks) > 0 {
-		r.Appendices = append(r.Appendices, reg)
+	r.Evidence = b.evidence()
+	if opt.IncludeReferences {
+		if reg := b.evidenceRegister(r.Evidence); len(reg.Blocks) > 0 {
+			r.Appendices = append(r.Appendices, reg)
+		}
 	}
 
 	for i, id := range b.order {
@@ -125,6 +144,34 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 
 func (b *builder) errorf(format string, args ...any) {
 	b.issues = append(b.issues, Issue{Severity: "error", Message: fmt.Sprintf(format, args...)})
+}
+
+// citeProblem records a bad citation: an error, or a warning when lenient.
+func (b *builder) citeProblem(format string, args ...any) {
+	if b.opt.Lenient {
+		b.warn(format+"; citation dropped", args...)
+		return
+	}
+	b.errorf(format, args...)
+}
+
+func resolveLayout(configured, requested string) string {
+	switch configured {
+	case LayoutFull, LayoutCompact:
+		return configured
+	}
+	if requested == LayoutCompact {
+		return LayoutCompact
+	}
+	return LayoutFull
+}
+
+func label(s, def string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || len([]rune(s)) > 60 {
+		return def
+	}
+	return s
 }
 
 func (b *builder) warn(format string, args ...any) {
@@ -150,11 +197,11 @@ func (b *builder) cite(ids []string, where string) []int {
 	for _, id := range ids {
 		f := b.store.Finding(id)
 		if f == nil {
-			b.errorf("%s cites unknown finding %s", where, id)
+			b.citeProblem("%s cites unknown finding %s", where, id)
 			continue
 		}
 		if !f.Usable() {
-			b.errorf("%s cites rejected finding %s (%s)", where, id, f.Review.Note)
+			b.citeProblem("%s cites rejected finding %s (%s)", where, id, f.Review.Note)
 			continue
 		}
 		b.cited[id] = true
@@ -361,9 +408,13 @@ func (b *builder) methodAppendix(m Method) Section {
 	st := b.store.Stats()
 	sec := Section{Title: "Methodology and evidence quality"}
 	add := func(bl Block) { sec.Blocks = append(sec.Blocks, bl) }
+	check := fmt.Sprintf("An independent fact-checking agent reviewed the corpus over %d round(s) (final status: %s) before synthesis and editing.", m.FactCheckRounds, nonEmpty(m.FactCheckStatus, "n/a"))
+	if m.FactCheckRounds == 0 {
+		check = "Fact-checking was not run for this report, so claims have not been independently verified; treat it as a first pass."
+	}
 	add(Block{Type: BlockParagraph, Text: fmt.Sprintf(
-		"This report was produced by Boku, a multi-agent research pipeline. Research workstreams (%s) gathered evidence from public sources; each claim was recorded with its sources and date. An independent fact-checking agent reviewed the corpus over %d round(s) (final status: %s) before synthesis and editing. Information dated within %d days of publication is labelled current; older material is labelled historical.",
-		strings.Join(m.Workstreams, ", "), m.FactCheckRounds, nonEmpty(m.FactCheckStatus, "n/a"), m.FreshnessDays)})
+		"This report was produced by Boku, a multi-agent research pipeline. Research workstreams (%s) gathered evidence from public sources; each claim was recorded with its sources and date. %s Information dated within %d days of publication is labelled current; older material is labelled historical.",
+		strings.Join(m.Workstreams, ", "), check, m.FreshnessDays)})
 
 	rows := [][]string{
 		{"Findings recorded", strconv.Itoa(st.Findings)},
@@ -385,10 +436,9 @@ func (b *builder) methodAppendix(m Method) Section {
 	return sec
 }
 
-// evidenceRegister lists every finding the report cites with its evidence status.
-func (b *builder) evidenceRegister() Section {
-	sec := Section{Title: "Evidence register"}
-	var rows [][]string
+// evidence lists every finding the report cites with its evidence status.
+func (b *builder) evidence() []EvidenceEntry {
+	var out []EvidenceEntry
 	for _, f := range b.store.Usable() {
 		if !b.cited[f.ID] {
 			continue
@@ -406,7 +456,17 @@ func (b *builder) evidenceRegister() Section {
 		if f.Review.Status == research.ReviewFlagged {
 			status += " · weak support"
 		}
-		rows = append(rows, []string{f.ID, truncate(f.Claim, 220), status, nonEmpty(f.AsOf, "—"), citeOpen + joinInts(nums) + citeClose})
+		out = append(out, EvidenceEntry{ID: f.ID, Claim: f.Claim, Status: status, AsOf: f.AsOf, Sources: nums})
+	}
+	return out
+}
+
+// evidenceRegister renders the evidence entries as an appendix table.
+func (b *builder) evidenceRegister(entries []EvidenceEntry) Section {
+	sec := Section{Title: "Evidence register"}
+	var rows [][]string
+	for _, e := range entries {
+		rows = append(rows, []string{e.ID, truncate(e.Claim, 220), e.Status, nonEmpty(e.AsOf, "—"), citeOpen + joinInts(e.Sources) + citeClose})
 	}
 	if len(rows) == 0 {
 		return sec

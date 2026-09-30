@@ -26,13 +26,13 @@ var styleCSS string
 var reportTemplate string
 
 var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
-	"inline":       inlineHTML,
+	"inline":       func(s string) template.HTML { return inlineHTML(s, true) },
 	"two":          func(n int) string { return fmt.Sprintf("%02d", n) },
 	"letter":       func(i int) string { return string(rune('A' + i)) },
 	"month":        func(t time.Time) string { return t.Format("January 2006") },
 	"day":          func(t time.Time) string { return t.Format("2 January 2006") },
 	"date":         func(t *time.Time) string { return fmtDate(t) },
-	"sources":      sourceLine,
+	"sources":      func(b report.Block) template.HTML { return sourceLine(b, true) },
 	"chart":        func(b report.Block) template.HTML { return template.HTML(ChartSVG(b.Chart)) },
 	"diagram":      func(b report.Block) template.HTML { return template.HTML(DiagramSVG(b.Diagram)) },
 	"pagecss":      pageCSS,
@@ -43,8 +43,18 @@ var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 
 // HTML renders the report as a standalone, print-ready HTML document.
 func HTML(r *report.Report) ([]byte, error) {
+	t, err := tmpl.Clone()
+	if err != nil {
+		return nil, err
+	}
+	// Citations link to the source list only when it is in the document.
+	links := r.IncludeReferences
+	t.Funcs(template.FuncMap{
+		"inline":  func(s string) template.HTML { return inlineHTML(s, links) },
+		"sources": func(b report.Block) template.HTML { return sourceLine(b, links) },
+	})
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, r); err != nil {
+	if err := t.Execute(&buf, r); err != nil {
 		return nil, fmt.Errorf("render html: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -52,7 +62,7 @@ func HTML(r *report.Report) ([]byte, error) {
 
 // inlineHTML renders built text: escapes content, applies emphasis and links
 // citation numbers to the source list.
-func inlineHTML(s string) template.HTML {
+func inlineHTML(s string, links bool) template.HTML {
 	var b strings.Builder
 	for _, seg := range report.Inline(s) {
 		switch {
@@ -62,7 +72,11 @@ func inlineHTML(s string) template.HTML {
 				if i > 0 {
 					b.WriteString(",")
 				}
-				fmt.Fprintf(&b, `<a href="#src-%d">%d</a>`, n, n)
+				if links {
+					fmt.Fprintf(&b, `<a href="#src-%d">%d</a>`, n, n)
+				} else {
+					fmt.Fprintf(&b, "%d", n)
+				}
 			}
 			b.WriteString(`</sup>`)
 		case seg.Bold:
@@ -76,12 +90,16 @@ func inlineHTML(s string) template.HTML {
 	return template.HTML(b.String())
 }
 
-func sourceLine(b report.Block) template.HTML {
+func sourceLine(b report.Block, links bool) template.HTML {
 	var parts []string
 	if len(b.SourceNums) > 0 {
 		var refs []string
 		for _, n := range b.SourceNums {
-			refs = append(refs, fmt.Sprintf(`<a href="#src-%d">[%d]</a>`, n, n))
+			if links {
+				refs = append(refs, fmt.Sprintf(`<a href="#src-%d">[%d]</a>`, n, n))
+			} else {
+				refs = append(refs, fmt.Sprintf("[%d]", n))
+			}
 		}
 		parts = append(parts, "Source: "+strings.Join(refs, ", ")+".")
 	}
@@ -92,7 +110,7 @@ func sourceLine(b report.Block) template.HTML {
 		parts = append(parts, html.EscapeString(b.Chart.Note))
 	}
 	if b.Type == report.BlockTable && b.Text != "" {
-		parts = append(parts, string(inlineHTML(b.Text)))
+		parts = append(parts, string(inlineHTML(b.Text, links)))
 	}
 	return template.HTML(strings.Join(parts, " "))
 }
@@ -169,4 +187,11 @@ func truncateRunes(s string, n int) string {
 		return s
 	}
 	return strings.TrimSpace(string(r[:n-1])) + "…"
+}
+
+func fmtISO(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02")
 }

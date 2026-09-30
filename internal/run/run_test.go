@@ -2,6 +2,8 @@ package run
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -90,5 +92,24 @@ func TestReadJSONMissingAndMalformed(t *testing.T) {
 	_ = r.WriteFile("bad.json", []byte("{not json"))
 	if _, err := r.ReadJSON("bad.json", &v); err == nil {
 		t.Error("malformed JSON not reported")
+	}
+}
+
+func TestOpenFillsNewConfigDefaults(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"id":"x","topic":"t","config":{"agents":{"provider":"claude-code","max_parallel":2,"max_agents":6,"max_retries":1,"timeout":"20m"},"research":{"depth":"quick","freshness_days":365},"report":{"formats":["pdf"],"page_size":"A4"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := r.Manifest().Config
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("config from an older manifest should validate: %v", err)
+	}
+	if cfg.Agents.MaxParallel != 2 || !cfg.Research.FactCheck || cfg.Report.Mode != "full" {
+		t.Errorf("recorded values lost or defaults missing: %+v", cfg)
 	}
 }

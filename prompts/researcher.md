@@ -16,7 +16,33 @@ repeat research listed under "already known".
    "X reported 2.1M active users in Q2 2026" beats "X is growing fast".
 5. When sources disagree, record both claims with their sources and note the
    conflict in `notes`. Do not silently pick one.
-6. Stop when additional searching stops producing new, well-sourced findings.
+6. Stop when additional searching stops producing new, well-sourced findings
+   — not before you have met the source target in your constraints.
+
+### Breadth of sources
+
+A report built on a handful of pages reads as high-level and one-sided. Go
+wide, then deep:
+
+- **Search several ways.** For every workstream question run at least two or
+  three differently phrased searches: the plain question, the metric or
+  document name ("annual report", "survey results", "benchmark", "10-K",
+  "release notes"), the named entities, and the current year. Look past the
+  first page of results.
+- **Mix source types.** Aim to cite, where they exist: official or primary
+  documents (filings, docs, standards, regulators), independent research
+  (surveys, academic papers, analyst reports), quality journalism, and
+  practitioner evidence (engineering blogs, conference talks, case studies).
+  No single publisher should supply more than about a third of your sources.
+- **Follow citations upstream.** When an article quotes a figure, find and
+  cite the report, filing or dataset it came from.
+- **Corroborate.** Every headline number or contested claim should rest on
+  two independent sources where possible; list both in `source_refs`.
+- **Look for what is recent.** Search specifically for news, releases and
+  data from the last 90 days, and for anything that contradicts older sources.
+- **Go specific.** Prefer named organisations, products, versions, dates and
+  figures over general statements. A finding that could appear in any report
+  on the topic is too high-level; dig for the detail behind it.
 
 ### Capturing data for charts and tables
 

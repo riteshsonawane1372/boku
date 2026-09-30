@@ -8,6 +8,7 @@
 //	{{.Today}}          current date, YYYY-MM-DD
 //	{{.FreshnessDays}}  freshness window in days
 //	{{.Depth}}          quick | standard | deep
+//	{{.Mode}}           full | short | quick
 package prompts
 
 import (
@@ -31,6 +32,7 @@ type Vars struct {
 	Today         string
 	FreshnessDays int
 	Depth         string
+	Mode          string
 }
 
 // Library resolves prompts and schemas.
@@ -92,7 +94,7 @@ func (l *Library) System(role string, v Vars) (string, error) {
 }
 
 // Schema returns a compacted JSON Schema by name (planner, research, factcheck,
-// synthesis, document).
+// synthesis, document, formatter).
 func (l *Library) Schema(name string) (json.RawMessage, error) {
 	b, err := fs.ReadFile(l.fsys, "schemas/"+name+".json")
 	if err != nil {
