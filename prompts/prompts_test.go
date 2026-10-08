@@ -36,6 +36,49 @@ func TestEveryRoleRenders(t *testing.T) {
 	}
 }
 
+func TestExplainerAddOn(t *testing.T) {
+	lib, _ := Load("")
+	for _, codebase := range []bool{false, true} {
+		for _, role := range roles {
+			s, err := lib.System(role, Vars{Today: "2026-09-23", FreshnessDays: 90, Depth: "standard", Mode: "explainer", Codebase: codebase})
+			if err != nil {
+				t.Fatalf("%s: %v", role, err)
+			}
+			if !strings.Contains(s, "produces an explainer") || strings.Contains(s, "{{") {
+				t.Errorf("%s: explainer add-on missing or unrendered", role)
+			}
+			if strings.Contains(s, "local codebase") != codebase {
+				t.Errorf("%s (codebase=%v): codebase section wrong", role, codebase)
+			}
+		}
+	}
+	s, _ := lib.System("editorial", Vars{Today: "2026-09-23", Mode: "explainer"})
+	if !strings.Contains(s, "Writing an explainer") || strings.Contains(s, "Planning an explainer") || strings.Contains(s, "explainer report**") {
+		t.Error("editorial explainer prompt picks up the wrong sections")
+	}
+	full, _ := lib.System("editorial", Vars{Today: "2026-09-23", Mode: "full"})
+	if strings.Contains(full, "explainer") {
+		t.Error("explainer add-on leaked into full mode")
+	}
+}
+
+func TestWhitepaperAddOn(t *testing.T) {
+	lib, _ := Load("")
+	for _, role := range roles {
+		s, err := lib.System(role, Vars{Today: "2026-09-23", FreshnessDays: 90, Depth: "deep", Mode: "whitepaper"})
+		if err != nil {
+			t.Fatalf("%s: %v", role, err)
+		}
+		if !strings.Contains(s, "produces a whitepaper") || strings.Contains(s, "{{") || strings.Contains(s, "produces an explainer") {
+			t.Errorf("%s: whitepaper add-on missing, unrendered or mixed with explainer", role)
+		}
+	}
+	s, _ := lib.System("editorial", Vars{Today: "2026-09-23", Mode: "whitepaper"})
+	if !strings.Contains(s, "Writing a whitepaper") || strings.Contains(s, "Planning a whitepaper") || strings.Contains(s, "whitepaper report**") {
+		t.Error("editorial whitepaper prompt picks up the wrong sections")
+	}
+}
+
 func TestSchemasAreValidJSON(t *testing.T) {
 	lib, _ := Load("")
 	for _, name := range []string{"planner", "research", "factcheck", "synthesis", "document", "formatter"} {

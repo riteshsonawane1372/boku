@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/riteshsonawane1372/boku/internal/config"
 	"github.com/riteshsonawane1372/boku/internal/logx"
 	"github.com/riteshsonawane1372/boku/internal/render"
+	"github.com/riteshsonawane1372/boku/internal/report"
 	"github.com/riteshsonawane1372/boku/internal/run"
 	"github.com/riteshsonawane1372/boku/prompts"
 )
@@ -35,9 +37,13 @@ type fakeAgent struct {
 	cliches bool
 	// queries records SearchQueries per task ID.
 	queries map[string][]string
+	// tasks records the last task per task ID.
+	tasks map[string]agent.Task
 }
 
-func newFake() *fakeAgent { return &fakeAgent{calls: map[string]int{}, queries: map[string][]string{}} }
+func newFake() *fakeAgent {
+	return &fakeAgent{calls: map[string]int{}, queries: map[string][]string{}, tasks: map[string]agent.Task{}}
+}
 
 func (f *fakeAgent) count(id string) int {
 	f.mu.Lock()
@@ -62,6 +68,7 @@ func (f *fakeAgent) Run(ctx context.Context, t agent.Task) (agent.Result, error)
 	f.calls[t.ID]++
 	call := f.calls[t.ID]
 	f.queries[t.ID] = t.SearchQueries
+	f.tasks[t.ID] = t
 	f.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return agent.Result{}, err
@@ -497,25 +504,104 @@ func TestFactCheckFollowUpRounds(t *testing.T) {
 	}
 }
 
-func TestFactCheckFailBlocksPublication(t *testing.T) {
+func TestFactCheckFailPublishesMarkedUnverified(t *testing.T) {
 	cfg := testConfig(t)
 	fake := newFake()
 	fake.factStatus = func(int) string { return "fail" }
 	r := newRun(t, cfg)
-	_, err := newOrchestrator(t, cfg, fake).Execute(context.Background(), r)
-	var blocked *ErrBlocked
-	if !errors.As(err, &blocked) || blocked.Gate != "fact-check" {
-		t.Fatalf("want fact-check block, got %v", err)
+	if _, err := newOrchestrator(t, cfg, fake).Execute(context.Background(), r); err != nil {
+		t.Fatalf("failed fact check should not block publication: %v", err)
 	}
-	if fake.count("synthesis") != 0 {
-		t.Error("synthesis ran after a failed fact gate")
-	}
-	if r.Manifest().Status != run.StatusBlocked {
+	if r.Manifest().Status != run.StatusCompleted {
 		t.Errorf("status = %s", r.Manifest().Status)
 	}
+	var rep report.Report
+	if _, err := r.ReadJSON("report/report.json", &rep); err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Unverified) == 0 {
+		t.Error("report does not mark the unverified points")
+	}
 	entries, _ := os.ReadDir(cfg.Output.Directory)
-	if len(entries) != 0 {
-		t.Error("blocked run published output")
+	if len(entries) == 0 {
+		t.Error("no output published")
+	}
+}
+
+func TestCodebaseExplainer(t *testing.T) {
+	repo := t.TempDir()
+	_ = os.WriteFile(filepath.Join(repo, "README.md"), []byte("# Widget\nA widget server."), 0o644)
+	_ = os.MkdirAll(filepath.Join(repo, "cmd", "widget"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo, "cmd", "widget", "main.go"), []byte("package main\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(repo, "node_modules", "dep"), 0o755)
+
+	cfg := testConfig(t)
+	cfg.ApplyMode(config.ModeExplainer)
+	cfg.Research.Codebase = repo
+	cfg.Research.MinSources = 3
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	fake := newFake()
+	if _, err := newOrchestrator(t, cfg, fake).Execute(context.Background(), newRun(t, cfg)); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"planner", "research-tech", "factcheck-1"} {
+		task, ok := fake.tasks[id]
+		if !ok {
+			t.Fatalf("task %s did not run", id)
+		}
+		if task.WorkDir != repo {
+			t.Errorf("%s: workdir %s, want the repository", id, task.WorkDir)
+		}
+		if !slices.Contains(task.Tools, agent.ToolRead) || !slices.Contains(task.Tools, agent.ToolGrep) {
+			t.Errorf("%s: no file tools: %v", id, task.Tools)
+		}
+		if !strings.Contains(task.Instructions, "The subject is a local codebase") {
+			t.Errorf("%s: explainer prompt missing", id)
+		}
+	}
+	plan := fake.tasks["planner"]
+	if len(plan.Inputs) == 0 || !strings.Contains(plan.Inputs[0].Content, "cmd/widget/main.go") || strings.Contains(plan.Inputs[0].Content, "node_modules") {
+		t.Errorf("repository overview wrong: %+v", plan.Inputs)
+	}
+	ed := fake.tasks["editorial"]
+	if ed.WorkDir == repo || slices.Contains(ed.Tools, agent.ToolRead) {
+		t.Error("the editor must not get the repository")
+	}
+	if !strings.Contains(ed.Instructions, "Writing an explainer") {
+		t.Error("editor did not get explainer guidance")
+	}
+}
+
+func TestWhitepaperPublishesPaper(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.ApplyMode(config.ModeWhitepaper)
+	cfg.Research.MinSources = 3
+	fake := newFake()
+	r := newRun(t, cfg)
+	out, err := newOrchestrator(t, cfg, fake).Execute(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rep report.Report
+	if _, err := r.ReadJSON("report/report.json", &rep); err != nil {
+		t.Fatal(err)
+	}
+	if rep.Layout != report.LayoutPaper || !rep.IncludeReferences || rep.Labels.Summary != "Abstract" {
+		t.Errorf("whitepaper not built as a paper: layout %s, refs %v, %+v", rep.Layout, rep.IncludeReferences, rep.Labels)
+	}
+	if !strings.Contains(fake.tasks["editorial"].Instructions, "Writing a whitepaper") {
+		t.Error("editor did not get whitepaper guidance")
+	}
+	var html []byte
+	for _, p := range out.Outputs {
+		if strings.HasSuffix(p, ".html") {
+			html, _ = os.ReadFile(p)
+		}
+	}
+	if !strings.Contains(string(html), `class="layout-paper"`) || !strings.Contains(string(html), "<h1>References</h1>") {
+		t.Error("published HTML is not in the paper layout")
 	}
 }
 

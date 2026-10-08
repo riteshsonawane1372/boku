@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boku</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d3b66'/%3E%3Cpath d='M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z' fill='none' stroke='%237cc4ff' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>
+  // Apply the saved theme before first paint.
+  try { var t = localStorage.getItem("boku-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="#/new" aria-label="Boku">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0d3b66"/><path d="M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z" fill="none" stroke="#7cc4ff" stroke-width="2.6" stroke-linejoin="round"/></svg>
+      <span>Boku</span>
+    </a>
+    <nav class="side-nav" id="nav" aria-label="Main"></nav>
+    <div class="side-foot">
+      <a class="sys" id="sys" href="#/settings" title="System check"></a>
+      <div class="side-meta">
+        <span id="version"></span>
+        <button class="icon-btn" id="theme" type="button" aria-label="Toggle colour theme"></button>
+      </div>
+    </div>
+  </aside>
+  <main id="main" tabindex="-1"></main>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

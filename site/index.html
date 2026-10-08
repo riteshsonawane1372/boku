@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boku — Multi-agent Research Reports</title>
-<meta name="description" content="Give Boku a question. A team of AI agents plans, researches, fact-checks and writes a cited, typeset research report. Runs on Claude Code, your own model, or a local Ollama model.">
+<meta name="description" content="Give Boku a question, or a codebase. A team of AI agents plans, researches, fact-checks and writes a cited, typeset research report, whitepaper or visual explainer. Runs on Claude Code, your own model, or a local Ollama model.">
 <meta property="og:title" content="Boku — research reports you can audit">
 <meta property="og:description" content="Planner, parallel researchers, an independent fact-checker, synthesis and an editor. Every sentence cites its source; every chart traces to evidence.">
 <meta property="og:image" content="https://boku.riteshsonawane.com/assets/img/report-page-1.png">
@@ -29,6 +29,7 @@
       <a href="#cost">Cost</a>
       <a href="#modes">Modes</a>
       <a href="#output">Output</a>
+      <a href="#ui">Web UI</a>
       <a class="keep" href="docs.html">Docs</a>
       <button class="theme-toggle" type="button" aria-label="Toggle colour theme" data-theme-toggle>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -128,6 +129,8 @@
             <tr><td><b>Full</b><small>default</small></td><td class="usd">$8–31<small><span class="pill measured">measured</span></small></td><td>Planner, up to 6 researchers, fact-check rounds with follow-ups, 15–40 page report.</td></tr>
             <tr><td><b>Short</b><small><code>--short</code></small></td><td class="usd">≈ $4–6<small><span class="pill estimate">estimate</span></small></td><td>3 researchers, one fact-check round, a compact 3–8 page brief.</td></tr>
             <tr><td><b>Quick</b><small><code>--quick</code></small></td><td class="usd free">$0<small><span class="pill local">local</span></small></td><td>Every agent on your Ollama model with Boku's own web search. No fact-check. A first pass.</td></tr>
+            <tr><td><b>Whitepaper</b><small><code>boku whitepaper</code></small></td><td class="usd">—<small><span class="pill new">new</span></small></td><td>Deep research, up to 6 researchers, two follow-up rounds. A 10–20+ page paper with abstract and references. Not yet measured; expect at least full-report cost.</td></tr>
+            <tr><td><b>Explainer</b><small><code>boku explain</code></small></td><td class="usd">—<small><span class="pill new">new</span></small></td><td>Up to 4 researchers, one follow-up round. A diagram-led explainer of a topic or a local codebase. Not yet measured.</td></tr>
           </tbody>
         </table>
         <p class="footnote">Short estimate: per-role costs of the <code>--depth quick</code> run above with 3 researchers and one fact-check round. Quick spends no API money; it uses your machine. On a Claude subscription, Claude Code usage counts against your plan rather than being billed at these figures.</p>
@@ -140,8 +143,8 @@
   <div class="wrap">
     <div class="section-head">
       <span class="eyebrow">Modes</span>
-      <h2>One command. Three depths of effort.</h2>
-      <p>No flag gives you the full report. Add one when you want something faster or cheaper; combine with <code>--save-ref</code> to print the source list inside the PDF.</p>
+      <h2>One command. Five ways to run it.</h2>
+      <p>No flag gives you the full report. Add one when you want something faster or cheaper, a whitepaper in research-paper form, or an explainer of a topic or a codebase. Combine with <code>--save-ref</code> to print the source list inside the PDF.</p>
     </div>
     <div class="modes">
       <article class="mode">
@@ -164,6 +167,20 @@
         <p>Every agent runs on a local Ollama model. Zero Claude tokens.</p>
         <ul><li>Boku searches and fetches pages itself</li><li>Models may only cite pages Boku fetched</li><li>No fact-check: treat it as a first pass</li></ul>
         <pre class="cmd"><span class="p">$ </span>boku report "GPU sharing on Kubernetes" <span class="f">--quick</span></pre>
+      </article>
+      <article class="mode">
+        <div class="ico" style="background:color-mix(in srgb, var(--violet) 14%, transparent);color:var(--violet)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="3" width="7" height="6" rx="1.5"/><rect x="8.5" y="15" width="7" height="6" rx="1.5"/><path d="M6.5 9v2.5a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5V9M12 13v2"/></svg></div>
+        <h3>Explainer <span class="pill new">new</span></h3>
+        <p>Understand how a topic — or your codebase — works.</p>
+        <ul><li>Big picture, key ideas, glossary</li><li>Architecture and step-by-step process diagrams</li><li>Given a directory, agents read the repo (read-only) and cite files</li></ul>
+        <pre class="cmd"><span class="p">$ </span>boku <span class="f">explain</span> ./my-service "auth flow"</pre>
+      </article>
+      <article class="mode">
+        <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M9 11h8M9 14h8M9 17h5"/></svg></div>
+        <h3>Whitepaper <span class="pill new">new</span></h3>
+        <p>The most detailed format, laid out like a conference paper.</p>
+        <ul><li>Abstract, keywords, numbered sections 1, 1.1, …</li><li>Captioned figures and tables, <code>[n]</code> citations, references</li><li>Deep research; results always carry their conditions</li></ul>
+        <pre class="cmd"><span class="p">$ </span>boku <span class="f">whitepaper</span> "Sparse attention for long context"</pre>
       </article>
     </div>
   </div>
@@ -202,6 +219,21 @@
  <span class="k">"status"</span>:<span class="s">"Estimated"</span>,<span class="k">"as_of"</span>:<span class="s">"2026"</span>,<span class="k">"refs"</span>:[<span class="n">5</span>]}
 ]}</pre>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="ui">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Web interface</span>
+      <h2>Every option, in a browser.</h2>
+      <p><code>boku ui</code> opens a local web app, embedded in the binary. Start runs with any setting, watch stages, cost and the log live, then browse the plan, evidence and report. It shows runs started from the CLI too.</p>
+    </div>
+    <a href="docs.html#web-ui"><img src="assets/img/ui.png" alt="Boku web interface: mode cards, the settings form and a summary of the run" loading="lazy" width="1685" height="1298" style="border:1px solid var(--line);border-radius:var(--radius)"></a>
+    <div class="install" aria-label="Web interface command" style="max-width:420px">
+      <span class="dollar">$</span><span id="ui-cmd">boku ui</span>
+      <button type="button" data-copy="#ui-cmd">Copy</button>
     </div>
   </div>
 </section>
@@ -248,7 +280,7 @@
     <div class="features">
       <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><h3>Claims keep their sources</h3><p>Researchers return structured findings. The editor can cite only findings that survived fact-checking; citations are resolved by code.</p></div>
       <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><h3>Freshness is computed</h3><p>Every finding carries the date it describes. Boku labels it current or historical against your window — the model never decides.</p></div>
-      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><h3>A critic with a veto</h3><p>An independent fact-checker rejects unsupported claims and sends targeted follow-up research. Quality gates block publication.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><h3>A critic with a veto</h3><p>An independent fact-checker rejects unsupported claims and sends targeted follow-up research. What it still can't verify is published in a red <em>Not verified</em> box, never as fact.</p></div>
       <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><h3>Charts that trace</h3><p>A chart is drawn only if every value appears in the cited evidence. Agents supply data, never layout.</p></div>
       <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 20V9"/></svg><h3>Shaped by your question</h3><p>A comparison opens with its matrix, a decision with the recommendation, a one-pager stays one page. Headings follow the request.</p></div>
       <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><h3>Inspectable and resumable</h3><p>Every artifact lands in a run directory. Interrupted runs resume where they stopped; re-rendering costs nothing.</p></div>

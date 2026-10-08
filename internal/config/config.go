@@ -38,6 +38,16 @@ const (
 	// web search, skips fact-checking and produces a compact report. It spends
 	// no Claude Code tokens.
 	ModeQuick Mode = "quick"
+	// ModeExplainer produces a visual explainer instead of a research report:
+	// plain-language concepts, diagrams of how the parts fit together and
+	// step-by-step walkthroughs. With research.codebase set, the subject is a
+	// local repository that agents read directly.
+	ModeExplainer Mode = "explainer"
+	// ModeWhitepaper produces a detailed paper in the form of an academic or
+	// industry paper: abstract, numbered sections, figures and tables with
+	// captions, bracketed citations and a reference list. Deep research, and
+	// the reference list is always included.
+	ModeWhitepaper Mode = "whitepaper"
 )
 
 // Providers are the agent runtimes Boku can drive.
@@ -143,13 +153,18 @@ type Research struct {
 	Sources []string `yaml:"sources" json:"sources,omitempty"`
 	// FactCheck runs the independent fact-checking agent. Quick mode turns it off.
 	FactCheck bool `yaml:"fact_check" json:"fact_check"`
+	// Codebase is the absolute path of a local repository to explain
+	// (explainer mode). Agents read it with read-only file tools and cite
+	// repository-relative file paths as sources.
+	Codebase string `yaml:"codebase" json:"codebase,omitempty"`
 }
 
 type Report struct {
-	// Mode is full (default), short or quick; see Mode.
+	// Mode is full (default), short, quick, explainer or whitepaper; see Mode.
 	Mode Mode `yaml:"mode" json:"mode"`
-	// Layout is auto, full (cover + contents) or compact (title block, no
-	// cover). auto lets the editor choose from the request and the mode.
+	// Layout is auto, full (cover + contents), compact (title block, no
+	// cover) or paper (academic paper; the whitepaper default). auto lets the
+	// editor choose between full and compact from the request and the mode.
 	Layout string `yaml:"layout" json:"layout"`
 	// IncludeReferences puts the source list and evidence register in the
 	// PDF/HTML/Markdown. They are always written to <report>.references.json.
@@ -281,14 +296,23 @@ func (c Config) Validate() error {
 		errs = append(errs, fmt.Errorf("agents.provider %q is not supported (supported: claude-code, ollama, openai)", c.Agents.Provider))
 	}
 	switch c.Report.Mode {
-	case ModeFull, ModeShort, ModeQuick:
+	case ModeFull, ModeShort, ModeQuick, ModeExplainer, ModeWhitepaper:
 	default:
-		errs = append(errs, fmt.Errorf("report.mode %q must be full, short or quick", c.Report.Mode))
+		errs = append(errs, fmt.Errorf("report.mode %q must be full, short, quick, explainer or whitepaper", c.Report.Mode))
+	}
+	if c.Research.Codebase != "" {
+		// Only Claude Code has file tools; other providers would have to guess.
+		if c.Agents.Provider != ProviderClaudeCode || c.UsesLocal() {
+			errs = append(errs, errors.New("explaining a codebase needs agents.provider claude-code and no local roles (not --quick)"))
+		}
+		if c.Report.Mode != ModeExplainer {
+			errs = append(errs, errors.New("research.codebase is only used in explainer mode"))
+		}
 	}
 	switch c.Report.Layout {
-	case "auto", "full", "compact":
+	case "auto", "full", "compact", "paper":
 	default:
-		errs = append(errs, fmt.Errorf("report.layout %q must be auto, full or compact", c.Report.Layout))
+		errs = append(errs, fmt.Errorf("report.layout %q must be auto, full, compact or paper", c.Report.Layout))
 	}
 	switch c.Search.Engine {
 	case "duckduckgo":
@@ -354,6 +378,9 @@ func (c Config) MinSourcesFor() int {
 	if c.Research.MinSources > 0 {
 		return c.Research.MinSources
 	}
+	if c.Report.Mode == ModeExplainer {
+		return 8 // an explainer rests on a few good sources (or files), not a survey
+	}
 	switch c.Research.Depth {
 	case DepthQuick:
 		return 8
@@ -376,6 +403,17 @@ func (c *Config) ApplyMode(m Mode) {
 		if c.Report.Layout == "auto" {
 			c.Report.Layout = "compact"
 		}
+	case ModeWhitepaper:
+		c.Research.Depth = DepthDeep
+		c.Report.IncludeReferences = true // a paper without its references is not a paper
+		c.Report.Charts, c.Report.Diagrams = true, true
+		if c.Report.Layout == "auto" {
+			c.Report.Layout = "paper"
+		}
+	case ModeExplainer:
+		c.Agents.MaxAgents = min(c.Agents.MaxAgents, 4)
+		c.Research.MaxIterations = min(c.Research.MaxIterations, 1)
+		c.Report.Diagrams = true
 	case ModeQuick:
 		c.Research.Depth = DepthQuick
 		c.Agents.MaxAgents = min(c.Agents.MaxAgents, 3)

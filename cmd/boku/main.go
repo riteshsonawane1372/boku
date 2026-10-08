@@ -1,8 +1,11 @@
 // Command boku is a multi-agent research and report generator.
 //
 //	boku report "How Kubernetes is being used for AI infrastructure"
+//	boku explain ./path/to/repo "how a request is handled"
+//	boku whitepaper "Sparse attention for long-context transformers"
 //	boku resume runs/2026-09-23T074500-kubernetes-ai-infrastructure
 //	boku status runs/2026-09-23T074500-kubernetes-ai-infrastructure
+//	boku ui
 package main
 
 import (
@@ -10,9 +13,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -24,6 +31,7 @@ import (
 	"github.com/riteshsonawane1372/boku/internal/orchestrator"
 	"github.com/riteshsonawane1372/boku/internal/render"
 	"github.com/riteshsonawane1372/boku/internal/run"
+	"github.com/riteshsonawane1372/boku/internal/ui"
 	"github.com/riteshsonawane1372/boku/prompts"
 )
 
@@ -38,9 +46,16 @@ Usage:
                                     --quick     local Ollama model only, no Claude tokens
                                     --save-ref  include the source list in the PDF
   boku research <topic> [flags]   alias for report
+  boku explain <topic|path> [focus] [flags]
+                                  visual explainer of a topic, or of a local
+                                  codebase when given a directory
+  boku whitepaper <topic> [flags] detailed paper in academic/industry format:
+                                  abstract, numbered sections, references
   boku resume <run-dir> [flags]   continue an interrupted or blocked run
   boku render <run-dir> [flags]   rebuild outputs from a run's artifacts (no agents)
   boku status <run-dir>           show a run's stages, tasks and cost
+  boku ui [flags]                 open the web interface: start runs with every
+                                  option, watch them live, browse reports
   boku doctor                     check the agent runtime, Ollama and Chrome
   boku init [path]                write an example boku.yaml
   boku version
@@ -60,13 +75,19 @@ func main() {
 	var err error
 	switch cmd {
 	case "report", "research":
-		err = cmdReport(ctx, args)
+		err = cmdReport(ctx, "report", args)
+	case "explain":
+		err = cmdReport(ctx, "explain", args)
+	case "whitepaper":
+		err = cmdReport(ctx, "whitepaper", args)
 	case "resume":
 		err = cmdResume(ctx, args)
 	case "render":
 		err = cmdRender(ctx, args)
 	case "status":
 		err = cmdStatus(args)
+	case "ui", "serve":
+		err = cmdUI(ctx, args)
 	case "doctor":
 		err = cmdDoctor()
 	case "init":
@@ -114,6 +135,8 @@ type options struct {
 	mode       string
 	short      bool
 	quick      bool
+	explainer  bool
+	whitepaper bool
 	saveRef    bool
 	localModel string
 }
@@ -129,7 +152,9 @@ func (o *options) register(fs *flag.FlagSet, full bool) {
 	if !full {
 		return
 	}
-	fs.StringVar(&o.mode, "mode", "", "report mode: full (default), short or quick")
+	fs.StringVar(&o.mode, "mode", "", "report mode: full (default), short, quick, explainer or whitepaper")
+	fs.BoolVar(&o.whitepaper, "whitepaper", false, "detailed whitepaper in academic/industry paper format: abstract, numbered sections, figures, references; deep research (same as --mode whitepaper or `boku whitepaper`)")
+	fs.BoolVar(&o.explainer, "explainer", false, "visual explainer of a topic or, given a directory, a codebase (same as --mode explainer or `boku explain`)")
 	fs.BoolVar(&o.short, "short", false, "short search report: 3 workstreams, one fact-check round, compact layout (same as --mode short)")
 	fs.BoolVar(&o.quick, "quick", false, "quick report on the local Ollama model: no Claude Code tokens, no fact-check (same as --mode quick)")
 	fs.StringVar(&o.localModel, "local-model", "", "Ollama model for --quick and formatting, e.g. llama3.1:8b, qwen2.5:14b")
@@ -146,12 +171,16 @@ func (o *options) register(fs *flag.FlagSet, full bool) {
 func (o *options) apply(cfg *config.Config) error {
 	mode := config.Mode(o.mode)
 	switch {
-	case o.quick && o.short:
-		return errors.New("--quick and --short are mutually exclusive")
+	case btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper) > 1:
+		return errors.New("--quick, --short, --explainer and --whitepaper are mutually exclusive")
 	case o.quick:
 		mode = config.ModeQuick
 	case o.short:
 		mode = config.ModeShort
+	case o.explainer:
+		mode = config.ModeExplainer
+	case o.whitepaper:
+		mode = config.ModeWhitepaper
 	}
 	if mode != "" {
 		cfg.ApplyMode(mode) // before the other flags, so explicit flags still win
@@ -231,17 +260,50 @@ func loadConfig(path string) (config.Config, error) {
 	return config.Load(path)
 }
 
-func cmdReport(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("report", flag.ContinueOnError)
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// cmdReport runs `boku report`, `boku explain` and `boku whitepaper`. An explainer whose first
+// argument is a directory explains that codebase; the remaining arguments
+// say what to focus on.
+func cmdReport(ctx context.Context, name string, args []string) error {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	var o options
 	o.register(fs, true)
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: boku report <topic> [flags]")
+		switch name {
+		case "explain":
+			fmt.Fprintln(fs.Output(), "Usage: boku explain <topic> [flags]\n       boku explain <directory> [focus] [flags]")
+		case "whitepaper":
+			fmt.Fprintln(fs.Output(), "Usage: boku whitepaper <topic> [flags]")
+		default:
+			fmt.Fprintln(fs.Output(), "Usage: boku report <topic> [flags]")
+		}
 		fs.PrintDefaults()
 	}
 	pos, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
+	}
+	if forced := map[string]config.Mode{"explain": config.ModeExplainer, "whitepaper": config.ModeWhitepaper}[name]; forced != "" {
+		if o.mode != "" && o.mode != string(forced) || btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper) > 0 {
+			return fmt.Errorf("boku %s always uses %s mode; drop --mode, --short, --quick, --explainer and --whitepaper", name, forced)
+		}
+		o.mode = string(forced)
+	}
+	explainer := o.explainer || o.mode == string(config.ModeExplainer)
+	var codebase string
+	if explainer && len(pos) > 0 {
+		if codebase, err = codebasePath(pos[0]); err != nil {
+			return err
+		}
+		if codebase != "" {
+			pos = []string{orchestrator.CodebaseTopic(codebase, strings.Join(pos[1:], " "))}
+		}
 	}
 	topic := strings.TrimSpace(strings.Join(pos, " "))
 	if topic == "" {
@@ -252,6 +314,7 @@ func cmdReport(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg.Research.Codebase = codebase
 	if err := o.apply(&cfg); err != nil {
 		return err
 	}
@@ -260,6 +323,16 @@ func cmdReport(ctx context.Context, args []string) error {
 		return err
 	}
 	return execute(ctx, cfg, r, o.verbose, false)
+}
+
+// codebasePath returns the absolute path of arg when it names a directory,
+// and "" when it is a topic.
+func codebasePath(arg string) (string, error) {
+	info, err := os.Stat(arg)
+	if err != nil || !info.IsDir() {
+		return "", nil
+	}
+	return filepath.Abs(arg)
 }
 
 func cmdResume(ctx context.Context, args []string) error {
@@ -301,7 +374,12 @@ func reopen(ctx context.Context, name string, args []string, renderOnly bool) er
 }
 
 func execute(ctx context.Context, cfg config.Config, r *run.Run, verbose, renderOnly bool) error {
-	log := logx.New(os.Stderr, verbose)
+	return executeWith(ctx, cfg, r, logx.New(os.Stderr, verbose), renderOnly)
+}
+
+// executeWith runs or re-renders r, logging to log. The web UI calls it with
+// a logger that writes to the run's log file only.
+func executeWith(ctx context.Context, cfg config.Config, r *run.Run, log *logx.Logger, renderOnly bool) error {
 	lib, err := prompts.Load(cfg.Output.PromptsDir)
 	if err != nil {
 		return err
@@ -487,18 +565,37 @@ func cmdStatus(args []string) error {
 }
 
 func cmdDoctor() error {
+	cfg, err := loadConfig("")
 	ok := true
+	for _, c := range doctorChecks(cfg, err) {
+		switch {
+		case c.OK:
+			fmt.Printf("  ✓ %-12s %s\n", c.Name, c.Detail)
+		case c.Optional:
+			fmt.Printf("  - %-12s %s\n", c.Name, c.Detail)
+		default:
+			ok = false
+			fmt.Printf("  ✗ %-12s %s\n", c.Name, c.Detail)
+		}
+	}
+	if !ok {
+		return errors.New("some checks failed")
+	}
+	return nil
+}
+
+// doctorChecks inspects everything a run depends on; `boku doctor` prints
+// the result and the web UI shows it.
+func doctorChecks(cfg config.Config, cfgErr error) []ui.Check {
+	var checks []ui.Check
 	check := func(name string, err error, detail string) {
 		if err != nil {
-			ok = false
-			fmt.Printf("  ✗ %-12s %v\n", name, err)
+			checks = append(checks, ui.Check{Name: name, Detail: err.Error()})
 			return
 		}
-		fmt.Printf("  ✓ %-12s %s\n", name, detail)
+		checks = append(checks, ui.Check{Name: name, OK: true, Detail: detail})
 	}
-	note := func(name, detail string) { fmt.Printf("  - %-12s %s\n", name, detail) }
-	cfg, err := loadConfig("")
-	check("config", err, "ok")
+	check("config", cfgErr, "ok")
 	switch cfg.Agents.Provider {
 	case config.ProviderClaudeCode:
 		if p, err := exec.LookPath(cfg.Agents.Command); err != nil {
@@ -516,7 +613,7 @@ func cmdDoctor() error {
 		if cfg.UsesLocal() {
 			check("ollama", err, "")
 		} else {
-			note("ollama", "not available ("+err.Error()+"); --quick and local formatting disabled")
+			checks = append(checks, ui.Check{Name: "ollama", Optional: true, Detail: "not available (" + err.Error() + "); --quick and local formatting disabled"})
 		}
 	} else {
 		check("ollama", nil, cfg.Local.Model+" at "+cfg.Local.Endpoint+" (--quick and local formatting available)")
@@ -525,10 +622,71 @@ func cmdDoctor() error {
 	check("chrome", err, p)
 	_, err = prompts.Load(cfg.Output.PromptsDir)
 	check("prompts", err, "ok")
-	if !ok {
-		return errors.New("some checks failed")
+	return checks
+}
+
+// cmdUI serves the web interface until interrupted. Runs it started are
+// cancelled on exit and can be resumed like any other.
+func cmdUI(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
+	host := fs.String("host", "127.0.0.1", "address to listen on; anything but loopback requires the access token printed at start")
+	port := fs.Int("port", 7878, "port to listen on")
+	configPath := fs.String("config", "", "path to boku.yaml (default: ./boku.yaml if present)")
+	noOpen := fs.Bool("no-open", false, "do not open the browser")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
+	srv := &ui.Server{
+		Version:    version,
+		ConfigPath: *configPath,
+		Load:       func() (config.Config, error) { return loadConfig(*configPath) },
+		Execute:    executeWith,
+		Doctor:     doctorChecks,
+	}
+	if ip := net.ParseIP(*host); *host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		token, err := ui.NewToken()
+		if err != nil {
+			return err
+		}
+		srv.Token = token
+	}
+	ln, err := net.Listen("tcp", net.JoinHostPort(*host, fmt.Sprint(*port)))
+	if err != nil {
+		return fmt.Errorf("%w (is another `boku ui` running? try --port)", err)
+	}
+	url := "http://" + ln.Addr().String() + "/"
+	if srv.Token != "" {
+		url += "?token=" + srv.Token
+		fmt.Fprintln(os.Stderr, "WARN  listening beyond loopback: anyone with this URL can start agents and read run files")
+	}
+	fmt.Printf("Boku UI  %s\nCtrl-C to stop.\n", url)
+	if !*noOpen {
+		openBrowser(url)
+	}
+	hs := &http.Server{Handler: srv.Handler(ctx), ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		<-ctx.Done()
+		shut, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = hs.Shutdown(shut)
+		_ = hs.Close() // event streams never go idle
+	}()
+	if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	srv.Wait()
 	return nil
+}
+
+func openBrowser(url string) {
+	name := "xdg-open"
+	switch runtime.GOOS {
+	case "darwin":
+		name = "open"
+	case "windows":
+		name = "explorer"
+	}
+	_ = exec.Command(name, url).Start()
 }
 
 const exampleConfig = `# Boku configuration. Every field is optional; these are the defaults.
@@ -575,8 +733,8 @@ research:
   fact_check: true
 
 report:
-  mode: full                 # full | short | quick
-  layout: auto               # auto | full | compact (auto: the editor decides from the request)
+  mode: full                 # full | short | quick | explainer | whitepaper
+  layout: auto               # auto | full | compact | paper (auto: the editor decides; paper for whitepapers)
   include_references: false  # true = source list in the PDF (--save-ref); always in <report>.references.json
   formats: [pdf]             # pdf, html, md
   citations: true

@@ -8,6 +8,22 @@ make lint      # gofmt check + go vet
 make sample    # render the fictional sample report to ./tmp/sample.pdf
 ```
 
+## Web interface
+
+The app lives in `internal/ui/web` (`index.html`, `app.css`, `app.js`) and
+is embedded in the binary, so rebuild after editing it:
+
+```bash
+make build && bin/boku ui --no-open --port 7900
+```
+
+`app.js` has no dependencies and builds every node with its `h()` helper,
+which sets text only; keep it that way, since topics, findings and source
+titles come from the web. A new setting needs one entry in `SECTIONS`
+(and in `FLAGS` if it has a command-line flag). Server tests are in
+`internal/ui/server_test.go` and use a fake executor, so they call no
+agents.
+
 ## Tests
 
 Unit tests never call Claude Code. `internal/orchestrator/orchestrator_test.go`

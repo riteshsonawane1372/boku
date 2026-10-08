@@ -17,7 +17,8 @@ import (
 //
 // Each task is a fresh, isolated `claude -p` process:
 //   - restricted mode: no shell or code-execution tools, user/project settings ignored
-//   - only the tools listed on the task (web search / fetch) are available
+//   - only the tools listed on the task (web search / fetch, and read-only
+//     file tools when explaining a codebase) are available
 //   - no MCP servers, no slash commands, no session persistence
 //   - a filtered environment (see FilterEnv)
 //   - the structured result is validated by Claude Code against the task's JSON Schema

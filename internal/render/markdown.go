@@ -23,6 +23,13 @@ func Markdown(r *report.Report) []byte {
 	for _, p := range r.ExecutiveSummary {
 		b.WriteString(mdInline(p.Text) + "\n\n")
 	}
+	if len(r.Unverified) > 0 {
+		b.WriteString("> **⚠ Not verified by fact-check.** The fact checker could not verify the following. Treat any statement in this report that touches on them as unconfirmed.\n>\n")
+		for _, u := range r.Unverified {
+			b.WriteString("> - " + u + "\n")
+		}
+		b.WriteString("\n")
+	}
 	if len(r.KeyFindings) > 0 {
 		fmt.Fprintf(&b, "## %s\n\n", r.Labels.KeyFindings)
 		for i, k := range r.KeyFindings {

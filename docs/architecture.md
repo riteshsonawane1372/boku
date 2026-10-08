@@ -34,12 +34,35 @@ internal/report       document model, citation resolution, chart/table/diagram v
 internal/render       HTML + print CSS, SVG charts and diagrams, Markdown, PDF, PDF inspection
 internal/orchestrator the pipeline
 internal/logx         CLI logger
+internal/ui           web interface: HTTP API over runs and config, embedded web app
 prompts/              agent prompts and JSON Schemas (embedded)
 ```
 
 Dependencies point one way: `orchestrator` → everything else;
 `render` → `report` → `research`. The research engine never imports the
 renderer, and the renderer never sees an agent.
+
+## Web interface
+
+`boku ui` serves `internal/ui`: a small JSON API and a static web app
+(`internal/ui/web`, plain HTML/CSS/JS embedded with `go:embed`, no build
+step). The package adds no pipeline logic. `cmd/boku` hands it the same
+functions the CLI uses to load configuration, run the doctor checks and
+execute a run.
+
+- **Requests are a mode plus overrides.** The app sends only the settings
+  the user changed; the server applies `Config.ApplyMode` and then the
+  overrides, the same order as CLI flags, and validates with
+  `Config.Validate`.
+- **Runs are ordinary run directories.** Each run executes in a goroutine
+  with its own context, so it can be cancelled; several can run at once.
+  Resume and re-render accept the settings `boku resume` accepts.
+- **The run directory is the only state.** The events stream
+  (`/api/runs/{id}/events`, server-sent events) polls `manifest.json` and
+  tails `logs/boku.log`, so runs started from the CLI appear live as well,
+  and nothing is lost when the server restarts.
+
+`SECURITY.md` describes how the server is kept local.
 
 ## The agent boundary
 
@@ -63,6 +86,10 @@ claude -p --output-format json --restricted --tools WebSearch,WebFetch
        --system-prompt <role prompt> --json-schema <schema>
        [--model m] [--max-budget-usd b]          (user prompt on stdin)
 ```
+
+Codebase explainers add `Read,Glob,Grep` to `--tools` for the planner,
+researchers and fact checker, and run those tasks with the repository as the
+working directory.
 
 Errors are classified (`unavailable`, `timeout`, `malformed_output`,
 `runtime`, `budget`) so `agent.Runner` knows what to retry. A new provider

@@ -18,11 +18,17 @@ Each agent is a separate `claude -p` process started with:
 
 - `--restricted`: no shell, code-execution or file-editing tools; user,
   project and local Claude Code settings are ignored
-- `--tools WebSearch,WebFetch` (or none): the only capabilities agents have
+- `--tools WebSearch,WebFetch` (or none): the only capabilities agents have.
+  When explaining a codebase (`boku explain <dir>`), the planner, researchers
+  and fact checker also get the read-only `Read`, `Glob` and `Grep` tools and
+  run in that repository instead of a scratch directory. They can read any
+  file the tools can reach, so do not point Boku at a directory containing
+  secrets you would not send to the model provider.
 - `--strict-mcp-config` with no MCP servers, `--disable-slash-commands`
 - `--permission-mode dontAsk`: anything not pre-allowed is denied
 - `--no-session-persistence`
-- a scratch working directory inside the run directory
+- a scratch working directory inside the run directory (the repository
+  itself for file-reading tasks in codebase explainers)
 - a filtered environment: only `PATH`, `HOME`, locale, terminal, temp and
   proxy/certificate variables, plus `ANTHROPIC_*`, `CLAUDE_CODE_*` and
   `CLAUDE_CONFIG_DIR`. Cloud credentials, tokens and `SSH_AUTH_SOCK` are
@@ -52,6 +58,27 @@ itself performs the web searches and page fetches for them (`agent.Web`):
 
 The local formatter can only replace a passage when its finding citations
 and numbers are unchanged.
+
+### Web interface
+
+`boku ui` starts an HTTP server that can launch agents, read run
+directories and write `boku.yaml`, so it is built to be reachable only by
+you:
+
+- It listens on `127.0.0.1` and rejects requests whose `Host` is not a
+  loopback name, which stops DNS-rebinding attacks from other websites.
+- Requests that change anything need an `X-Boku` header, which a cross-site
+  form or script cannot send; the server answers no CORS preflight.
+- `--host` with a non-loopback address requires a random access token,
+  printed in the URL at start and kept in an `HttpOnly`, `SameSite=Strict`
+  cookie. Traffic is plain HTTP: anyone who can read it, or who has the
+  URL, can start agents and read run files. Use it on networks you trust,
+  or put it behind a TLS proxy.
+- Report HTML and SVG are built from web content, so they are served with
+  `Content-Security-Policy: sandbox` and cannot call the API. File requests
+  are confined to the run and reports directories.
+- A codebase explainer started from the UI reads whatever directory you
+  type, exactly as `boku explain <dir>` does.
 
 ### Output safety
 

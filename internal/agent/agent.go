@@ -43,10 +43,14 @@ func IsResearchRole(role string) bool {
 	return false
 }
 
-// Tool names an agent may be granted. Agents never get shell or file-write tools.
+// Tool names an agent may be granted. Agents never get shell or file-write
+// tools; the file tools are read-only and used to explain a local codebase.
 const (
 	ToolWebSearch = "WebSearch"
 	ToolWebFetch  = "WebFetch"
+	ToolRead      = "Read"
+	ToolGlob      = "Glob"
+	ToolGrep      = "Grep"
 )
 
 // Artifact is a named piece of input or output content.
@@ -80,7 +84,8 @@ type Task struct {
 	Timeout time.Duration
 	// BudgetUSD caps the spend of this task when the runtime supports it; 0 = none.
 	BudgetUSD float64
-	// WorkDir is a scratch directory the agent runs in.
+	// WorkDir is the directory the agent runs in: a scratch directory, or
+	// the repository being explained when the task has file tools.
 	WorkDir string
 }
 

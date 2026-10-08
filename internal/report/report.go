@@ -29,6 +29,8 @@ type Document struct {
 	KeyFindingsTitle string `json:"key_findings_title,omitempty"`
 	ConclusionTitle  string `json:"conclusion_title,omitempty"`
 	Layout           string `json:"layout,omitempty"` // full | compact
+	// Keywords are index terms shown under a paper's abstract.
+	Keywords []string `json:"keywords,omitempty"`
 }
 
 type KeyFinding struct {
@@ -61,7 +63,7 @@ type Block struct {
 	Items   []string   `json:"items,omitempty"`
 	Columns []string   `json:"columns,omitempty"`
 	Rows    [][]string `json:"rows,omitempty"`
-	// Tone styles callouts: insight, caution, estimate, note.
+	// Tone styles callouts: insight, caution, estimate, note, unverified.
 	Tone       string   `json:"tone,omitempty"`
 	FindingIDs []string `json:"finding_ids,omitempty"`
 	AsOf       string   `json:"as_of,omitempty"`
@@ -126,10 +128,16 @@ type Report struct {
 	Evidence []EvidenceEntry `json:"evidence,omitempty"`
 	// Labels are the headings of the fixed parts.
 	Labels Labels `json:"labels"`
-	// Layout is full (cover and contents) or compact (title block, no cover).
+	// Layout is full (cover and contents), compact (title block, no cover)
+	// or paper (academic paper: title block, abstract, numbered sections).
 	Layout string `json:"layout"`
+	// Keywords are index terms shown under a paper's abstract.
+	Keywords []string `json:"keywords,omitempty"`
 	// IncludeReferences puts the numbered source list into the document.
 	IncludeReferences bool `json:"include_references"`
+	// Unverified lists points the fact checker could not verify. They are
+	// shown in a highlighted notice after the executive summary.
+	Unverified []string `json:"unverified,omitempty"`
 	// Warnings are non-fatal problems found while building (dropped charts, …).
 	Warnings []string `json:"warnings,omitempty"`
 }
@@ -138,6 +146,7 @@ type Report struct {
 const (
 	LayoutFull    = "full"
 	LayoutCompact = "compact"
+	LayoutPaper   = "paper"
 )
 
 // Labels are headings for the parts every report has.

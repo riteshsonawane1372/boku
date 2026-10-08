@@ -102,11 +102,26 @@ func (fc FactCheck) CriticalIssues() []FactIssue {
 	return out
 }
 
+// Unverified lists what the fact checker could not verify and the report must
+// flag prominently: unresolved critical issues, and the summary of a failed
+// check.
+func (fc FactCheck) Unverified() []string {
+	var out []string
+	if fc.Status == FactFail && strings.TrimSpace(fc.Summary) != "" {
+		out = append(out, strings.TrimSpace(fc.Summary))
+	}
+	for _, is := range fc.CriticalIssues() {
+		out = append(out, strings.TrimSpace(is.Description))
+	}
+	return dedupe(out, 12)
+}
+
 // Limitations turns unresolved fact-check output into reader-facing caveats.
 func (fc FactCheck) Limitations() []string {
 	var out []string
 	for _, is := range fc.Issues {
-		if is.Severity == "minor" {
+		// Critical issues are shown in the report's "not verified" notice.
+		if is.Severity == "minor" || is.Severity == "critical" {
 			continue
 		}
 		out = append(out, strings.TrimSpace(is.Description))

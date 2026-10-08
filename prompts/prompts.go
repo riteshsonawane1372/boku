@@ -3,12 +3,15 @@
 // the same layout can override them at runtime (output.prompts_directory).
 //
 // A role's system prompt is common.md, then researcher.md for research roles,
-// then <role>.md. Prompts are Go text/templates with these fields:
+// then <role>.md, then <mode>.md for the explainer and whitepaper modes. Prompts are Go
+// text/templates with these fields:
 //
 //	{{.Today}}          current date, YYYY-MM-DD
 //	{{.FreshnessDays}}  freshness window in days
 //	{{.Depth}}          quick | standard | deep
-//	{{.Mode}}           full | short | quick
+//	{{.Mode}}           full | short | quick | explainer | whitepaper
+//	{{.Role}}           the agent's role
+//	{{.Codebase}}       true when the subject is a local repository
 package prompts
 
 import (
@@ -33,6 +36,8 @@ type Vars struct {
 	FreshnessDays int
 	Depth         string
 	Mode          string
+	Role          string
+	Codebase      bool
 }
 
 // Library resolves prompts and schemas.
@@ -68,11 +73,11 @@ var researchRoles = map[string]bool{
 
 // System renders the system prompt for a role.
 func (l *Library) System(role string, v Vars) (string, error) {
-	files := []string{"common.md"}
-	if researchRoles[role] {
-		files = append(files, "researcher.md")
+	v.Role = role
+	files := l.files(role)
+	if modeAddOns[v.Mode] {
+		files = append(files, v.Mode+".md")
 	}
-	files = append(files, role+".md")
 	var buf bytes.Buffer
 	for i, name := range files {
 		b, err := fs.ReadFile(l.fsys, name)
@@ -111,13 +116,22 @@ func (l *Library) Schema(name string) (json.RawMessage, error) {
 // prompt, recorded in the run manifest for reproducibility.
 func (l *Library) Version(role string) string {
 	h := sha256.New()
-	files := []string{"common.md"}
-	if researchRoles[role] {
-		files = append(files, "researcher.md")
-	}
-	for _, name := range append(files, role+".md") {
+	for _, name := range append(l.files(role), "explainer.md", "whitepaper.md") {
 		b, _ := fs.ReadFile(l.fsys, name)
 		h.Write(b)
 	}
 	return hex.EncodeToString(h.Sum(nil))[:12]
+}
+
+// modeAddOns are the modes with a prompt file of their own, appended to
+// every role's system prompt.
+var modeAddOns = map[string]bool{"explainer": true, "whitepaper": true}
+
+// files lists the prompt files for a role, in order, excluding mode add-ons.
+func (l *Library) files(role string) []string {
+	files := []string{"common.md"}
+	if researchRoles[role] {
+		files = append(files, "researcher.md")
+	}
+	return append(files, role+".md")
 }

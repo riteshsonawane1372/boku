@@ -10,6 +10,7 @@
 </style>
 </head>
 <body class="layout-{{.Layout}}">
+{{if eq .Layout "paper"}}{{template "paper" .}}{{else}}
 
 {{if eq .Layout "compact"}}
 <header class="compact-cover">
@@ -56,41 +57,12 @@
   {{range .ExecutiveSummary}}<p>{{inline .Text}}</p>
   {{end}}
   </div>
+  {{if .Unverified}}<aside class="callout unverified"><div class="label">Not verified by fact-check</div><p>The fact checker could not verify the following. Treat any statement in this report that touches on them as unconfirmed.</p><ul>{{range .Unverified}}<li>{{.}}</li>{{end}}</ul></aside>{{end}}
 </section>
 
 {{if .KeyFindings}}
 <section class="chapter" id="key-findings">
   <div class="eyebrow">{{.Labels.KeyFindings}}</div>
-  <h1>What the evidence shows</h1>
-  <ol class="findings">
-  {{range $i, $k := .KeyFindings}}
-    <li><div class="num">{{two (add $i 1)}}</div><div><h3>{{inline $k.Headline}}</h3>{{with $k.Detail}}<p>{{inline .}}</p>{{end}}</div></li>
-  {{end}}
-  </ol>
-</section>
-{{end}}
-
-{{range .Sections}}<li><span class="n">{{two .Number}}</span><a href="#section-{{.Number}}">{{.Title}}</a></li>
-    {{end}}
-    {{if .Conclusion}}<li><span class="n"></span><a href="#conclusion">Conclusion</a></li>{{end}}
-    <li><span class="n"></span><a href="#sources">Sources</a></li>
-    {{range $i, $a := .Appendices}}<li class="minor"><span class="n">{{letter $i}}</span><a href="#appendix-{{letter $i}}">{{$a.Title}}</a></li>
-    {{end}}
-  </ol>
-</nav>
-
-<section class="chapter" id="executive-summary">
-  <div class="eyebrow">Executive summary</div>
-  <h1>{{.Metadata.Title}}</h1>
-  <div class="lead">
-  {{range .ExecutiveSummary}}<p>{{inline .Text}}</p>
-  {{end}}
-  </div>
-</section>
-
-{{if .KeyFindings}}
-<section class="chapter" id="key-findings">
-  <div class="eyebrow">Key findings</div>
   <h1>What the evidence shows</h1>
   <ol class="findings">
   {{range $i, $k := .KeyFindings}}
@@ -145,7 +117,7 @@
   {{template "blocks" $a.Blocks}}
 </section>
 {{end}}
-
+{{end}}
 </body>
 </html>
 
@@ -178,4 +150,68 @@
   </figure>
   {{end}}
 {{end}}
+{{end}}
+
+{{/* Paper layout: a single-column academic paper. Title block, abstract,
+     numbered sections and subsections (CSS counters), captioned figures and
+     tables, bracketed citations and a reference list. */}}
+{{define "paper"}}
+<header class="paper-head">
+  <h1 class="paper-title">{{.Metadata.Title}}</h1>
+  {{with .Metadata.Subtitle}}<div class="paper-subtitle">{{.}}</div>{{end}}
+  <div class="paper-authors">{{if .Metadata.Author}}{{.Metadata.Author}}{{else}}Boku research agents{{end}}<sup>*</sup></div>
+  <div class="paper-date">{{.Metadata.ReportType}} · {{month .Metadata.Date}}</div>
+</header>
+
+<section class="abstract" id="executive-summary">
+  <h2>{{.Labels.Summary}}</h2>
+  {{range .ExecutiveSummary}}<p>{{inline .Text}}</p>
+  {{end}}
+  {{with .Keywords}}<p class="keywords"><b>Keywords:</b> {{join . "; "}}</p>{{end}}
+</section>
+{{if .Unverified}}<aside class="callout unverified"><div class="label">Not verified by fact-check</div><p>The fact checker could not verify the following. Treat any statement in this paper that touches on them as unconfirmed.</p><ul>{{range .Unverified}}<li>{{.}}</li>{{end}}</ul></aside>{{end}}
+
+{{if .KeyFindings}}
+<section class="highlights" id="key-findings">
+  <h2>{{.Labels.KeyFindings}}</h2>
+  <ul>{{range .KeyFindings}}<li><b>{{inline .Headline}}</b>{{with .Detail}} — {{inline .}}{{end}}</li>{{end}}</ul>
+</section>
+{{end}}
+
+{{range .Sections}}
+<section class="paper-section" id="section-{{.Number}}">
+  <h1>{{.Title}}</h1>
+  {{template "blocks" .Blocks}}
+</section>
+{{end}}
+
+{{if .Conclusion}}
+<section class="paper-section" id="conclusion">
+  <h1>{{.Labels.Conclusion}}</h1>
+  {{range .Conclusion}}<p>{{inline .Text}}</p>
+  {{end}}
+</section>
+{{end}}
+
+{{if .IncludeReferences}}
+<section class="paper-refs" id="sources">
+  <h1>References</h1>
+  <ol class="paper-sources">
+  {{range .Sources}}
+    <li id="src-{{.Number}}"><span class="n">[{{.Number}}]</span> {{with .Publisher}}{{.}}. {{end}}<i>{{.Title}}</i>.{{with date .Published}} {{.}}.{{end}} <span class="url"><a href="{{.URL}}">{{.URL}}</a></span>. Accessed {{day .Accessed}}.</li>
+  {{end}}
+  </ol>
+</section>
+{{else}}
+<p class="refs-note">Numbered citations refer to {{len .Sources}} sources listed in {{with .Metadata.ReferencesFile}}the companion file <strong>{{.}}</strong>{{else}}the run's references file{{end}}. Re-render with <code>--save-ref</code> to include them here.</p>
+{{end}}
+
+{{range $i, $a := .Appendices}}
+<section class="paper-appendix" id="appendix-{{letter $i}}">
+  <h1><span class="secnum">{{letter $i}}</span>{{$a.Title}}</h1>
+  {{template "blocks" $a.Blocks}}
+</section>
+{{end}}
+
+<p class="paper-footnote"><sup>*</sup>Compiled from public sources by Boku, an automated multi-agent research pipeline, in response to: “{{.Metadata.Topic}}”. This paper reports no new experiments; every result is drawn from the cited work. Verify material facts before relying on them.</p>
 {{end}}

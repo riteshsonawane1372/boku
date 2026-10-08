@@ -87,8 +87,14 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 			fmt.Sprintf("Create at most %d workstreams; fewer is better when the question is narrow.", o.Config.Agents.MaxAgents),
 			fmt.Sprintf("Research depth is %s; report mode is %s.", o.Config.Research.Depth, o.Config.Report.Mode),
 		}
-		if o.Config.Report.Mode != config.ModeFull {
+		if o.Config.Report.Mode == config.ModeShort || o.Config.Report.Mode == config.ModeQuick {
 			cons = append(cons, "This is a short report: plan 3–5 research questions and a 2–4 section outline that answer the request directly.")
+		}
+		tools, inputs := []string{agent.ToolWebSearch}, []agent.Artifact(nil)
+		if o.Config.Research.Codebase != "" {
+			tools = append(append([]string{}, codeTools...), agent.ToolWebSearch)
+			inputs = []agent.Artifact{{Name: "repository overview", Content: o.repoOverview(ctx, st)}}
+			cons = append(cons, "The subject is the repository in your working directory (see the repository overview). Skim its entry points and documentation with Read, Glob and Grep to plan the workstreams; leave the detailed reading to them.")
 		}
 		if len(o.Config.Research.Sources) > 0 {
 			cons = append(cons, "The requester suggests these sources or source types: "+strings.Join(o.Config.Research.Sources, "; ")+".")
@@ -97,7 +103,7 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 			ID: "planner", Role: agent.RolePlanner, Stage: run.StagePlan, Schema: "planner",
 			Objective:   "Create the research plan for this request:\n\n" + topic,
 			Context:     fmt.Sprintf("Today is %s. Information within %d days counts as current.", st.asOf.Format("2 January 2006"), o.Config.Research.FreshnessDays),
-			Constraints: cons, Tools: []string{agent.ToolWebSearch}, SearchQueries: []string{topic}, SearchPages: 4, Artifact: rel,
+			Constraints: cons, Inputs: inputs, Tools: tools, SearchQueries: []string{topic}, SearchPages: 4, Artifact: rel,
 		})
 		if err != nil {
 			return "", fmt.Errorf("planner: %w", err)

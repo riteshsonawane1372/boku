@@ -39,6 +39,7 @@ var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"css":          func() template.CSS { return template.CSS(styleCSS) },
 	"add":          func(a, b int) int { return a + b },
 	"calloutLabel": calloutLabel,
+	"join":         strings.Join,
 }).Parse(reportTemplate))
 
 // HTML renders the report as a standalone, print-ready HTML document.
@@ -126,6 +127,8 @@ func calloutLabel(b report.Block) string {
 		return "Estimate"
 	case "note":
 		return "Note"
+	case "unverified":
+		return "Not verified"
 	}
 	return "Insight"
 }

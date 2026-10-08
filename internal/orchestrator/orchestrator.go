@@ -85,6 +85,7 @@ type state struct {
 	docPath   string         // final editorial draft
 	autoCited bool           // quick mode added citations by text matching
 	report    *report.Report // built report
+	repo      string         // repository overview when explaining a codebase
 }
 
 const totalSteps = 7
@@ -121,6 +122,10 @@ func (o *Orchestrator) Execute(ctx context.Context, r *run.Run) (*Outcome, error
 	})
 	if err := o.loadEvidence(st); err != nil {
 		return nil, err
+	}
+	if o.Config.Research.Codebase != "" {
+		// Built before research fans out, so parallel tasks only read it.
+		st.repo = repoOverview(ctx, o.Config.Research.Codebase)
 	}
 	o.Log.Info("run started", "id", m.ID, "dir", r.Dir)
 
@@ -215,6 +220,7 @@ func (o *Orchestrator) runTask(ctx context.Context, st *state, spec taskSpec) (j
 		FreshnessDays: o.Config.Research.FreshnessDays,
 		Depth:         string(o.Config.Research.Depth),
 		Mode:          string(o.Config.Report.Mode),
+		Codebase:      o.Config.Research.Codebase != "",
 	})
 	if err != nil {
 		return nil, err
@@ -226,6 +232,10 @@ func (o *Orchestrator) runTask(ctx context.Context, st *state, spec taskSpec) (j
 	workDir := st.run.Path("agents", spec.ID)
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return nil, err
+	}
+	if o.Config.Research.Codebase != "" && usesFiles(spec.Tools) {
+		// File tools resolve paths against the repository being explained.
+		workDir = o.Config.Research.Codebase
 	}
 	runner, model := st.runner, o.Config.ModelFor(spec.Role)
 	if spec.Role == agent.RoleFormatter || o.Config.IsLocalRole(spec.Role) {

@@ -12,6 +12,8 @@
   --accent-soft: #e7eef6;
   --caution: #9a6412;
   --caution-soft: #fbf4e7;
+  --unverified: #b42318;
+  --unverified-soft: #fdecea;
   --serif: "Charter", "Bitstream Charter", "Sitka Text", "Iowan Old Style", Cambria, Georgia, serif;
   --sans: "Helvetica Neue", "Inter", "Segoe UI", "Liberation Sans", Arial, sans-serif;
   --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
@@ -287,6 +289,9 @@ sup.cite {
 .callout.caution .label { color: var(--caution); }
 .callout.estimate, .callout.note { background: var(--tint); border-color: var(--muted); }
 .callout.estimate .label, .callout.note .label { color: var(--muted); }
+.callout.unverified { background: var(--unverified-soft); border-color: var(--unverified); }
+.callout.unverified .label { color: var(--unverified); }
+.callout ul { margin: 0 0 0.5em 1.2em; padding: 0; color: var(--ink); }
 
 /* ── Tables and figures ───────────────────────────────── */
 
@@ -399,3 +404,108 @@ ol.sources .url { font: 400 7pt var(--mono); color: var(--muted); word-break: br
   color: var(--faint);
 }
 .refs-note code { font: 400 7pt var(--mono); }
+
+/* ── Paper layout ─────────────────────────────────────────
+   A single-column academic paper in the style of conference and arXiv
+   preprints: centred title between rules, indented abstract, numbered
+   sections and subsections, bracketed citations, captions below figures
+   and above tables, a reference list. No cover, contents or running header. */
+
+@page paper {
+  margin: 25mm 27mm 25mm 27mm;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+  @bottom-center {
+    content: counter(page);
+    font: 400 9pt var(--paper-serif);
+    color: #000;
+  }
+}
+
+.layout-paper {
+  --paper-serif: "Latin Modern Roman", "CMU Serif", "Times New Roman", Times, "Nimbus Roman", "Liberation Serif", serif;
+  --ink: #000;
+  --body: #111;
+  page: paper;
+  font-family: var(--paper-serif);
+  font-size: 10pt;
+  line-height: 1.38;
+  font-variant-numeric: lining-nums;
+  counter-reset: sec;
+}
+.layout-paper h1, .layout-paper h2, .layout-paper h3 { font-family: var(--paper-serif); color: #000; letter-spacing: 0; }
+.layout-paper p { text-align: justify; margin: 0 0 0.6em; }
+
+.paper-head { text-align: center; margin: 0 0 7mm; }
+.paper-title {
+  font-size: 17pt; font-weight: 700; line-height: 1.2;
+  border-top: 3.5pt solid #000; border-bottom: 1pt solid #000;
+  padding: 4mm 2mm; margin: 0 0 6mm;
+}
+.paper-subtitle { font-size: 11pt; font-style: italic; margin: -3mm 0 5mm; }
+.paper-authors { font-size: 10.5pt; font-weight: 700; }
+.paper-authors sup { font-weight: 400; }
+.paper-date { font-size: 9.5pt; margin-top: 1mm; }
+
+.abstract { margin: 0 11mm 6mm; }
+.abstract h2, .highlights h2 { text-align: center; font-size: 12pt; font-weight: 700; margin: 0 0 2.5mm; }
+.abstract .keywords { font-size: 9pt; text-align: left; margin-top: 2mm; }
+.highlights { margin: 0 11mm 6mm; }
+.highlights ul { margin: 0; padding-left: 5mm; }
+.highlights li { margin-bottom: 1mm; text-align: left; }
+
+.paper-section { counter-increment: sec; counter-reset: sub; margin-top: 5mm; }
+.paper-section > h1, .paper-refs > h1, .paper-appendix > h1 {
+  font-size: 12pt; font-weight: 700; margin: 0 0 2.5mm; break-after: avoid;
+}
+.paper-section > h1::before { content: counter(sec); display: inline-block; min-width: 7mm; }
+.paper-section > h2 { counter-increment: sub; font-size: 10pt; font-weight: 700; margin: 3.5mm 0 1.5mm; }
+.paper-section > h2::before { content: counter(sec) "." counter(sub); display: inline-block; min-width: 9mm; }
+.paper-appendix { margin-top: 6mm; }
+.paper-appendix:first-of-type { break-before: page; }
+.paper-appendix h1 .secnum { display: inline-block; min-width: 7mm; }
+.paper-appendix > h2 { font-size: 10pt; font-weight: 700; margin: 3.5mm 0 1.5mm; }
+
+/* Citations: [3] inline, not superscript. */
+.layout-paper sup.cite { font: inherit; color: #000; vertical-align: baseline; margin-left: 0.2em; }
+.layout-paper sup.cite::before { content: "["; }
+.layout-paper sup.cite::after { content: "]"; }
+.layout-paper sup.cite a { color: #1a4d8f; }
+
+.layout-paper ul.bullets li::before { content: "•"; background: none; width: auto; height: auto; top: 0; left: 0.5mm; }
+.layout-paper .callout { background: none; border: 0.6pt solid #000; border-left-width: 0.6pt; padding: 3mm 4mm 2mm; }
+.layout-paper .callout .label { color: #000; letter-spacing: 0.08em; font-family: var(--paper-serif); }
+.layout-paper .callout.unverified { border-color: var(--unverified); background: var(--unverified-soft); }
+.layout-paper .callout.unverified .label { color: var(--unverified); }
+
+/* Captions: "Figure 1:" below the figure, "Table 1:" above the table. */
+.layout-paper figure { margin: 4mm 0 5mm; }
+.layout-paper figure.chart, .layout-paper figure.diagram { display: flex; flex-direction: column; }
+.layout-paper figure.chart figcaption, .layout-paper figure.diagram figcaption { order: 2; margin: 2mm 0 0; }
+.layout-paper figure .source-line { order: 3; }
+.layout-paper figcaption, .layout-paper .caption {
+  font: 400 9pt/1.35 var(--paper-serif); color: #000; text-transform: none; letter-spacing: 0; text-align: center;
+}
+.layout-paper figcaption .label, .layout-paper .caption .label { color: #000; font-weight: 700; }
+.layout-paper figcaption .label::after, .layout-paper .caption .label::after { content: ":"; }
+.layout-paper figcaption .units { display: inline; margin-left: 1.5mm; }
+.layout-paper figcaption .units::before { content: "("; }
+.layout-paper figcaption .units::after { content: ")"; }
+.layout-paper .source-line { text-align: center; font-family: var(--paper-serif); }
+.layout-paper table { font-family: var(--paper-serif); border-top: 1pt solid #000; border-bottom: 1pt solid #000; }
+.layout-paper th {
+  font: 700 9pt var(--paper-serif); color: #000; background: none; text-transform: none; letter-spacing: 0;
+  border-bottom: 0.6pt solid #000;
+}
+.layout-paper td { border-bottom: none; font-size: 9pt; }
+.layout-paper td:first-child { font-weight: 400; }
+
+.paper-refs { margin-top: 6mm; }
+ol.paper-sources { list-style: none; padding: 0; margin: 0; font-size: 9pt; line-height: 1.35; }
+ol.paper-sources li { padding-left: 8mm; text-indent: -8mm; margin-bottom: 1.4mm; text-align: left; break-inside: avoid; }
+ol.paper-sources .n { display: inline-block; min-width: 8mm; text-indent: 0; }
+ol.paper-sources .url { font: 400 8pt var(--mono); word-break: break-all; }
+
+.paper-footnote { font-size: 8pt; color: #333; border-top: 0.5pt solid #000; padding-top: 1.5mm; margin-top: 8mm; width: 60%; text-align: left; }

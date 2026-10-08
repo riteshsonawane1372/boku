@@ -110,6 +110,24 @@ func TestApplyMode(t *testing.T) {
 	if short.UsesLocal() || !short.Research.FactCheck || short.Report.Layout != "full" || short.Agents.MaxAgents != 3 {
 		t.Errorf("short mode wrong or overrode explicit layout: %+v", short)
 	}
+	ex := Default()
+	ex.ApplyMode(ModeExplainer)
+	if ex.Agents.MaxAgents != 4 || ex.Research.MaxIterations != 1 || !ex.Report.Diagrams || ex.MinSourcesFor() != 8 {
+		t.Errorf("explainer mode not applied: %+v", ex)
+	}
+	ex.Research.Codebase = "/tmp/repo"
+	if err := ex.Validate(); err != nil {
+		t.Errorf("codebase explainer should be valid: %v", err)
+	}
+	ex.ApplyMode(ModeQuick)
+	if err := ex.Validate(); err == nil {
+		t.Error("a codebase needs Claude Code and cannot run in quick mode")
+	}
+	wp := Default()
+	wp.ApplyMode(ModeWhitepaper)
+	if wp.Research.Depth != DepthDeep || wp.Report.Layout != "paper" || !wp.Report.IncludeReferences || wp.Validate() != nil {
+		t.Errorf("whitepaper mode not applied: %+v", wp)
+	}
 	if d := Default(); d.UsesLocal() || d.IsLocalRole("editorial") {
 		t.Error("default config must not route roles to the local model")
 	}

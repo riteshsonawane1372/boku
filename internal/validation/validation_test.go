@@ -67,12 +67,22 @@ func TestFactGate(t *testing.T) {
 	if g := FactGate(nil, 0); g.Passed {
 		t.Error("missing fact check must fail")
 	}
-	if g := FactGate(&FactCheck{Status: FactFail, Summary: "no evidence"}, 1); g.Passed {
-		t.Error("fail status must fail")
+	failed := &FactCheck{Status: FactFail, Summary: "no evidence"}
+	if g := FactGate(failed, 1); !g.Passed || len(g.Warnings) != 1 {
+		t.Errorf("fail status should pass with a warning: %+v", g)
+	}
+	if u := failed.Unverified(); len(u) != 1 || u[0] != "no evidence" {
+		t.Errorf("fail summary should be unverified: %v", u)
 	}
 	crit := &FactCheck{Status: FactNeedsRevision, Issues: []FactIssue{{Severity: "critical", Description: "fabricated number"}}}
-	if g := FactGate(crit, 3); g.Passed {
-		t.Error("unresolved critical issue must fail")
+	if g := FactGate(crit, 3); !g.Passed || len(g.Warnings) != 1 {
+		t.Errorf("unresolved critical issue should pass with a warning: %+v", g)
+	}
+	if u := crit.Unverified(); len(u) != 1 || u[0] != "fabricated number" {
+		t.Errorf("critical issue should be unverified: %v", u)
+	}
+	if l := crit.Limitations(); len(l) != 0 {
+		t.Errorf("critical issue should not repeat in limitations: %v", l)
 	}
 	major := &FactCheck{Status: FactNeedsRevision, Issues: []FactIssue{{Severity: "major", Description: "thin"}}}
 	if g := FactGate(major, 3); !g.Passed || len(g.Warnings) != 2 {

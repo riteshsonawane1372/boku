@@ -162,12 +162,17 @@ func (o *Orchestrator) researchSpec(st *state, j researchJob) taskSpec {
 		fmt.Sprintf("Information dated before %s is historical: include it only with its date, and look for newer data for anything time-sensitive.", cutoff.Format("2 January 2006")),
 		"Cite only pages you opened. Every non-inference finding needs at least one source_ref.",
 	}
+	if o.Config.Research.Codebase != "" {
+		cons[1] = "Code describes the repository as it is now; web material about external dependencies follows the usual freshness rules."
+		cons[2] = "Cite only files and pages you opened. Every non-inference finding needs at least one source_ref."
+		fmt.Fprintf(&ctxb, "\nRepository overview:\n%s\n", o.repoOverview(context.Background(), st))
+	}
 	if len(o.Config.Research.Sources) > 0 {
 		cons = append(cons, "Requested sources or source types: "+strings.Join(o.Config.Research.Sources, "; ")+".")
 	}
 	return taskSpec{
 		ID: j.ID, Role: j.Workstream.Role, Stage: run.StageResearch, Schema: "research",
-		Objective: obj.String(), Context: ctxb.String(), Constraints: cons, Tools: webTools, Artifact: j.Artifact,
+		Objective: obj.String(), Context: ctxb.String(), Constraints: cons, Tools: o.tools(), Artifact: j.Artifact,
 		SearchQueries: searchQueries(j.Workstream, p.Title),
 	}
 }

@@ -129,7 +129,7 @@ func (o *Orchestrator) factCheckSpec(st *state, round int, rel string) taskSpec 
 	return taskSpec{
 		ID: fmt.Sprintf("factcheck-%d", round), Role: agent.RoleFactChecker, Stage: run.StageFactCheck, Schema: "factcheck",
 		Objective: "Review the research corpus for accuracy, sourcing, freshness and completeness before the report is written.",
-		Context:   ctxb.String(), Constraints: cons, Inputs: toArtifacts(inputs), Tools: webTools, Artifact: rel,
+		Context:   ctxb.String(), Constraints: cons, Inputs: toArtifacts(inputs), Tools: o.tools(), Artifact: rel,
 	}
 }
 

@@ -60,6 +60,8 @@ No flag gives the default full report. Pick another mode per report:
 | Full | *(none)* | planner, up to 6 researchers, fact-check with follow-ups, cover, contents, methodology | $8–31 in the runs below |
 | Short | `--short` | 3 researchers, one fact-check round, a compact 3–8 page brief | ≈ $4–6 (estimate) |
 | Quick | `--quick` | every agent on a local Ollama model with Boku's own web search; no fact-check | $0 API spend |
+| Whitepaper | `boku whitepaper` or `--whitepaper` | the most detailed format: a research paper with abstract, keywords, numbered sections, captioned figures and tables, `[n]` citations and references; deep research | not yet measured (at least full-report cost) |
+| Explainer | `boku explain` or `--explainer` | a visual explainer of a topic or a local codebase: big picture, key ideas, architecture and process diagrams, step-by-step flows, glossary | not yet measured |
 
 ```bash
 boku report "Is Postgres 18 async I/O worth enabling?" --short
@@ -70,6 +72,62 @@ boku report "…" --quick --local-model qwen2.5:14b                          # a
 Quick reports are a first pass: nothing checks a small model's claims (the
 methodology appendix says so), although it can still only cite pages Boku
 actually fetched.
+
+## Whitepapers
+
+`boku whitepaper` writes the subject up the way a conference paper or arXiv
+preprint would: title block, **Abstract** and keywords, optional
+**Highlights**, then numbered sections — Introduction (with the paper's
+contributions and organisation), Background, Related Work, the core
+technical sections, Empirical Evidence, Discussion, Open Problems and Future
+Directions, Conclusion — then **References** and lettered appendices.
+
+```bash
+boku whitepaper "Sparse attention for long-context transformers"
+boku report "Disaggregated prefill and decode for LLM serving" --whitepaper
+boku whitepaper "…" --depth standard --max-cost 25   # cheaper; explicit flags win
+```
+
+The paper layout (`report.layout: paper`) is single-column and serif, with a
+centred title between rules, justified text, sections numbered 1, 1.1, …,
+table captions above and figure captions below, `[3]`-style citations and a
+numbered reference list; no cover or contents page. Research runs at deep
+depth, researchers go to the original papers and specifications and keep
+every reported result with its conditions, and the fact checker checks
+attribution first.
+
+Boku runs no experiments: a whitepaper surveys and argues from the cited
+work, never presents a sourced result as its own, and says so in a footnote
+on the first page. Formulas are written inline with Unicode; there is no
+LaTeX typesetting.
+
+## Explainers
+
+`boku explain` writes an explainer instead of a report: what the subject is,
+the ideas that make it click, how the parts fit together (architecture
+diagrams), and what happens step by step (process diagrams). It runs the same
+pipeline with up to 4 researchers and one fact-check follow-up round.
+
+```bash
+boku explain "How does Raft consensus work?"
+boku explain ./path/to/repo                                  # explain a codebase
+boku explain ./path/to/repo "how a request is authenticated" # …with a focus
+boku report "How TLS 1.3 works" --explainer                  # same as boku explain
+```
+
+Given a directory, agents read the repository with read-only `Read`, `Glob`
+and `Grep` tools (no shell, nothing can be written) and cite files by their
+repository-relative path and line range. The planner gets the file tree,
+README and current commit. The editor never sees the repository, only the
+checked findings. Explaining a codebase needs the Claude Code provider; other
+providers have no file tools.
+
+## Unverified claims
+
+If the fact checker still has unresolved critical issues, or judges the
+evidence insufficient, after its last round, Boku still publishes. Those
+points appear in a red **Not verified** box after the executive summary and
+in the methodology appendix. The editor is told not to state them as fact.
 
 ## References file
 
@@ -179,7 +237,8 @@ treats a report as the end of an **evidence pipeline**, not a prompt:
 ```
 
 Agents are Claude Code processes (`claude -p`) run in restricted mode with
-only web tools, a filtered environment and a JSON Schema for their output.
+only web tools (plus read-only file tools when explaining a codebase), a
+filtered environment and a JSON Schema for their output.
 The Go process orchestrates; it never lets an agent write files or run
 commands. See [docs/architecture.md](docs/architecture.md).
 
@@ -223,13 +282,16 @@ boku status runs/2026-09-23T074500-enterprises-deploying-ai-agents-2026
 
 # Re-render after editing a draft or the stylesheet (no agents, no cost)
 boku render runs/2026-09-23T074500-enterprises-deploying-ai-agents-2026
+
+# Prefer a browser? Every command above, as a local web app
+boku ui
 ```
 
 Flags for `boku report`:
 
 | Flag | Meaning |
 | --- | --- |
-| `--short`, `--quick`, `--mode full\|short\|quick` | report mode (see above) |
+| `--short`, `--quick`, `--explainer`, `--whitepaper`, `--mode full\|short\|quick\|explainer\|whitepaper` | report mode (see above) |
 | `--save-ref` | include the source list and evidence register in the report |
 | `--local-model TAG` | Ollama model for `--quick` and formatting |
 | `--depth quick\|standard\|deep` | how much research to do |
@@ -245,6 +307,36 @@ Flags for `boku report`:
 | `--output DIR`, `--runs DIR`, `--config FILE`, `--verbose` | |
 
 Exit codes: `0` published, `1` error, `3` blocked by a quality gate, `130` interrupted.
+
+## Web interface
+
+```bash
+boku ui                  # serves http://127.0.0.1:7878 and opens the browser
+boku ui --port 9000 --no-open
+```
+
+`boku ui` is the same pipeline behind a local web app, embedded in the
+binary:
+
+<img src="docs/images/ui.png" width="840" alt="Boku web interface: the New report page with mode cards, settings form and run summary">
+
+- **New report**: topic or codebase, the five modes, and every setting in
+  `boku.yaml` as a form. It shows what the run will do, validates as you
+  type, and prints the equivalent `boku` command.
+- **Runs**: live stages, cost by stage, agent calls and log; cancel, resume,
+  re-render, duplicate or delete. Tabs for the report, plan, evidence,
+  fact-check rounds and every file in the run directory.
+- **Reports**: the published PDFs, HTML, Markdown and reference files.
+- **Settings**: edit the defaults and save them to `boku.yaml`; the
+  `boku doctor` checks.
+
+Runs are ordinary run directories, so the UI shows runs started from the
+CLI, and `boku resume` continues runs started in the UI. Stopping `boku ui`
+cancels the runs it is executing.
+
+The server listens on loopback only and rejects requests from other sites.
+`--host 0.0.0.0` exposes it to the network behind an access token printed at
+start; anyone with that URL can start agents and read run files.
 
 ## Example output
 
@@ -490,8 +582,8 @@ research:
   max_iterations: 2
 
 report:
-  mode: full                # full | short | quick
-  layout: auto              # auto | full | compact
+  mode: full                # full | short | quick | explainer | whitepaper
+  layout: auto              # auto | full | compact | paper
   include_references: false # --save-ref
   formats: [pdf]
   charts: true

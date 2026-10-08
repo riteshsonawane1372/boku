@@ -249,3 +249,25 @@ func TestAutoCite(t *testing.T) {
 		t.Error("cited text must be left alone")
 	}
 }
+
+func TestPaperLayout(t *testing.T) {
+	doc := Document{
+		ExecutiveSummary: []string{"Revenue grew [F001]."}, SummaryTitle: "Verdict", ConclusionTitle: "Conclusion",
+		Keywords: []string{" transformers ", "", "attention"}, Layout: LayoutCompact,
+		Sections: []Section{{Title: "Introduction", Blocks: []Block{{Type: BlockParagraph, Text: "Share rose [F002]."}}}},
+	}
+	r, _ := Build(doc, testStore(), Metadata{Title: "T"}, BuildOptions{Layout: LayoutPaper, Method: &Method{}})
+	if r.Layout != LayoutPaper || r.Labels.Summary != "Abstract" || r.Labels.KeyFindings != "Highlights" {
+		t.Errorf("paper layout or labels wrong: %s %+v", r.Layout, r.Labels)
+	}
+	if len(r.Keywords) != 2 || r.Keywords[0] != "transformers" {
+		t.Errorf("keywords = %q", r.Keywords)
+	}
+	if m := r.Appendices[len(r.Appendices)-1]; !strings.HasPrefix(m.Blocks[0].Text, "This paper was produced") {
+		t.Errorf("methodology should speak of a paper: %q", m.Blocks[0].Text)
+	}
+	full, _ := Build(doc, testStore(), Metadata{Title: "T"}, BuildOptions{Layout: "auto"})
+	if full.Layout != LayoutCompact || full.Labels.Summary != "Verdict" || len(full.Keywords) != 0 {
+		t.Error("keywords and the Abstract label belong to the paper layout only")
+	}
+}

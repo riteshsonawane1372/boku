@@ -33,7 +33,7 @@ sample:
 # refreshes the report images from docs/images).
 site:
 	rm -rf _site
-	cp docs/images/report-page-*.png site/assets/img/
+	cp docs/images/report-page-*.png docs/images/ui.png site/assets/img/
 	cp -R site _site
 	touch _site/.nojekyll
 	@echo "site assembled in _site/ (preview: python3 -m http.server -d _site 8000)"

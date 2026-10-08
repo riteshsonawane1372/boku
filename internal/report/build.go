@@ -29,7 +29,8 @@ func (i Issue) String() string { return i.Severity + ": " + i.Message }
 type BuildOptions struct {
 	Charts   bool
 	Diagrams bool
-	// Layout is auto, full or compact; auto follows the document's request.
+	// Layout is auto, full, compact or paper; auto follows the document's
+	// request (full or compact). Paper is chosen by configuration only.
 	Layout string
 	// IncludeReferences adds the source list and evidence register to the
 	// rendered document. They are in Report.Sources/Evidence either way.
@@ -49,6 +50,9 @@ type Method struct {
 	FactCheckStatus string
 	FreshnessDays   int
 	Limitations     []string
+	// Unverified lists points the fact checker could not verify; the report
+	// shows them in a highlighted notice after the executive summary.
+	Unverified []string
 }
 
 var markerRe = regexp.MustCompile(`\s*\[\s*(F\d{1,4}(?:\s*[,;]\s*F\d{1,4})*)\s*\]`)
@@ -62,6 +66,7 @@ type builder struct {
 	figures int
 	tables  int
 	opt     BuildOptions
+	layout  string
 }
 
 // Build validates a Document against the evidence store and produces a Report.
@@ -76,16 +81,30 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 	r.Metadata.ReportType = nonEmpty(r.Metadata.ReportType, nonEmpty(strings.TrimSpace(doc.ReportType), "Research Report"))
 	r.IncludeReferences = opt.IncludeReferences
 	r.Layout = resolveLayout(opt.Layout, doc.Layout)
+	b.layout = r.Layout
 	r.Labels = Labels{
 		Summary:     label(doc.SummaryTitle, "Executive summary"),
 		KeyFindings: label(doc.KeyFindingsTitle, "Key findings"),
 		Conclusion:  label(doc.ConclusionTitle, "Conclusion"),
+	}
+	if r.Layout == LayoutPaper {
+		// A paper's summary is always its abstract.
+		r.Labels.Summary = "Abstract"
+		r.Labels.KeyFindings = label(doc.KeyFindingsTitle, "Highlights")
+		for _, k := range doc.Keywords {
+			if k = strings.TrimSpace(k); k != "" && len(r.Keywords) < 8 {
+				r.Keywords = append(r.Keywords, k)
+			}
+		}
 	}
 
 	for _, p := range doc.ExecutiveSummary {
 		if strings.TrimSpace(p) != "" {
 			r.ExecutiveSummary = append(r.ExecutiveSummary, Block{Type: BlockParagraph, Text: b.text(p, "executive summary")})
 		}
+	}
+	if opt.Method != nil {
+		r.Unverified = opt.Method.Unverified
 	}
 	for _, k := range doc.KeyFindings {
 		if strings.TrimSpace(k.Headline) == "" {
@@ -157,7 +176,7 @@ func (b *builder) citeProblem(format string, args ...any) {
 
 func resolveLayout(configured, requested string) string {
 	switch configured {
-	case LayoutFull, LayoutCompact:
+	case LayoutFull, LayoutCompact, LayoutPaper:
 		return configured
 	}
 	if requested == LayoutCompact {
@@ -408,12 +427,16 @@ func (b *builder) methodAppendix(m Method) Section {
 	st := b.store.Stats()
 	sec := Section{Title: "Methodology and evidence quality"}
 	add := func(bl Block) { sec.Blocks = append(sec.Blocks, bl) }
+	doc := "report"
+	if b.layout == LayoutPaper {
+		doc = "paper"
+	}
 	check := fmt.Sprintf("An independent fact-checking agent reviewed the corpus over %d round(s) (final status: %s) before synthesis and editing.", m.FactCheckRounds, nonEmpty(m.FactCheckStatus, "n/a"))
 	if m.FactCheckRounds == 0 {
-		check = "Fact-checking was not run for this report, so claims have not been independently verified; treat it as a first pass."
+		check = "Fact-checking was not run for this " + doc + ", so claims have not been independently verified; treat it as a first pass."
 	}
 	add(Block{Type: BlockParagraph, Text: fmt.Sprintf(
-		"This report was produced by Boku, a multi-agent research pipeline. Research workstreams (%s) gathered evidence from public sources; each claim was recorded with its sources and date. %s Information dated within %d days of publication is labelled current; older material is labelled historical.",
+		"This "+doc+" was produced by Boku, a multi-agent research pipeline. Research workstreams (%s) gathered evidence from public sources; each claim was recorded with its sources and date. %s Information dated within %d days of publication is labelled current; older material is labelled historical.",
 		strings.Join(m.Workstreams, ", "), check, m.FreshnessDays)})
 
 	rows := [][]string{
@@ -429,6 +452,11 @@ func (b *builder) methodAppendix(m Method) Section {
 	b.tables++
 	add(Block{Type: BlockTable, Title: "Evidence base", Columns: []string{"Measure", "Count"}, Rows: rows, Number: b.tables})
 
+	if len(m.Unverified) > 0 {
+		add(Block{Type: BlockSubheading, Text: "Not verified"})
+		add(Block{Type: BlockCallout, Tone: "unverified", Title: "Not verified by fact-check", Text: "The fact checker could not verify the following, and statements in this report that touch on them should be treated as unconfirmed."})
+		add(Block{Type: BlockBullets, Items: m.Unverified})
+	}
 	if len(m.Limitations) > 0 {
 		add(Block{Type: BlockSubheading, Text: "Limitations and unresolved questions"})
 		add(Block{Type: BlockBullets, Items: m.Limitations})

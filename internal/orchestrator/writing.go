@@ -93,16 +93,25 @@ func (o *Orchestrator) stageEditorial(ctx context.Context, st *state) (string, e
 	corpus := st.store.CorpusJSON(true)
 	maxRevisions := max(1, o.Config.Research.MaxIterations)
 
+	inputs := []agentArtifact{{"research plan", o.planBrief(st)}, {"synthesis", string(synJSON)}, {"research corpus", corpus}}
+	cons := []string{
+		"Shape the report to the original request in the research plan: its wording decides the form, length and headings.",
+	}
+	if st.lastFC != nil {
+		if unv := st.lastFC.Unverified(); len(unv) > 0 {
+			inputs = append(inputs, agentArtifact{"points the fact checker could not verify", mustJSON(unv)})
+			cons = append(cons, "Some points could not be verified (see input). Do not state them as fact or build key findings on them; where the report must address one, put it in a callout with tone `unverified` that says plainly it is not verified.")
+		}
+	}
+
 	rel := "report/document.json"
 	if !st.run.Exists(rel) {
 		_, err := o.runTask(ctx, st, taskSpec{
 			ID: "editorial", Role: agent.RoleEditorial, Stage: run.StageEditorial, Schema: "document",
-			Objective: "Write the complete report.",
-			Inputs:    toArtifacts([]agentArtifact{{"research plan", o.planBrief(st)}, {"synthesis", string(synJSON)}, {"research corpus", corpus}}),
-			Constraints: []string{
-				"Shape the report to the original request in the research plan: its wording decides the form, length and headings.",
-			},
-			Artifact: rel,
+			Objective:   "Write the complete report.",
+			Inputs:      toArtifacts(inputs),
+			Constraints: cons,
+			Artifact:    rel,
 		})
 		if err != nil {
 			return "", fmt.Errorf("editorial: %w", err)
@@ -247,8 +256,10 @@ func (o *Orchestrator) buildOptions(st *state, syn Synthesis) report.BuildOption
 		limits = append(limits, g)
 	}
 	status, rounds := "", 0
+	var unverified []string
 	if st.lastFC != nil {
 		status, rounds = st.lastFC.Status, st.fcRounds
+		unverified = st.lastFC.Unverified()
 	}
 	return report.BuildOptions{
 		Charts: o.Config.Report.Charts, Diagrams: o.Config.Report.Diagrams,
@@ -258,6 +269,7 @@ func (o *Orchestrator) buildOptions(st *state, syn Synthesis) report.BuildOption
 		Method: &report.Method{
 			Workstreams: uniqueStrings(ws), FactCheckRounds: rounds, FactCheckStatus: status,
 			FreshnessDays: o.Config.Research.FreshnessDays, Limitations: limits,
+			Unverified: unverified,
 		},
 	}
 }

@@ -78,7 +78,7 @@ are at most tier 3, `sec.gov` and `.gov` are tier 1).
 | Gate | Blocks when | Warns when |
 | --- | --- | --- |
 | research | < 5 usable findings; distinct sources < half of `min_sources` | sources < `min_sources`; < 30% tier 1–2; > 50% undated |
-| fact-check | final status `fail`; unresolved critical issue | still `needs_revision`; major issues |
+| fact-check | fact check did not run | final status `fail` or unresolved critical issue (published, with those points in a red "Not verified" notice after the executive summary and in the methodology appendix); still `needs_revision`; major issues |
 | editorial | citation of unknown/rejected finding; no executive summary, key findings or sections; uncited executive summary; < 25% of body paragraphs cited; > 5 repeated sentences | clichés, repetition, thin structure, Markdown in text |
 | pdf | no PDF; < 3 pages; empty pages; a section missing; no citations or sources; page numbering missing; ragged table | — |
 

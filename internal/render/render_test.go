@@ -108,6 +108,48 @@ func TestReferencesOmittedByDefault(t *testing.T) {
 	}
 }
 
+func TestSummaryRenderedOnce(t *testing.T) {
+	out, err := HTML(sampleReport(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{`id="executive-summary"`, `id="key-findings"`} {
+		if n := strings.Count(string(out), id); n != 1 {
+			t.Errorf("%s rendered %d times", id, n)
+		}
+	}
+}
+
+// paperReport is the sample fixture in the whitepaper layout.
+func paperReport(t *testing.T) *report.Report {
+	r := sampleReport(t)
+	r.Layout = report.LayoutPaper
+	r.Labels.Summary, r.Labels.KeyFindings = "Abstract", "Highlights"
+	r.Keywords = []string{"dispatch systems", "event sourcing"}
+	r.Metadata.ReportType = "Whitepaper"
+	return r
+}
+
+func TestPaperLayout(t *testing.T) {
+	out, err := HTML(paperReport(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(out)
+	for _, want := range []string{
+		`class="layout-paper"`, `class="paper-title"`, "<h2>Abstract</h2>", "<b>Keywords:</b> dispatch systems; event sourcing",
+		"<h2>Highlights</h2>", `class="paper-section" id="section-1"`, `id="conclusion"`, "<h1>References</h1>", `id="src-1"`,
+		`class="paper-appendix" id="appendix-A"`, "reports no new experiments", `<sup class="cite">`, "counter(page)",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("paper HTML missing %q", want)
+		}
+	}
+	if strings.Contains(html, `class="cover"`) || strings.Contains(html, `class="toc"`) {
+		t.Error("paper layout must not have a cover or contents page")
+	}
+}
+
 func TestCompactLayout(t *testing.T) {
 	r := sampleReport(t)
 	r.Layout = report.LayoutCompact
@@ -209,5 +251,21 @@ func TestPDF(t *testing.T) {
 	}
 	if len(info.EmptyPages) > 0 {
 		t.Errorf("empty pages: %v (text ops per page %v)", info.EmptyPages, info.TextOps)
+	}
+
+	paper := paperReport(t)
+	b, _ = HTML(paper)
+	htmlPath, pdfPath = filepath.Join(dir, "paper.html"), filepath.Join(dir, "paper.pdf")
+	if err := os.WriteFile(htmlPath, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&PDFPrinter{}).Print(context.Background(), htmlPath, pdfPath); err != nil {
+		t.Fatal(err)
+	}
+	if info, err = InspectPDF(pdfPath, MarginGlyphs(paper.Metadata)); err != nil {
+		t.Fatal(err)
+	}
+	if info.Pages < 3 || len(info.EmptyPages) > 0 {
+		t.Errorf("paper: %d pages, empty pages %v", info.Pages, info.EmptyPages)
 	}
 }

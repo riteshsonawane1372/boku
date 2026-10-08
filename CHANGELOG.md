@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Web interface: `boku ui` serves a local app (default
+  `http://127.0.0.1:7878`) to start runs with every setting, watch stages,
+  cost and the log live, cancel, resume and re-render, browse a run's plan,
+  evidence, fact-check rounds and files, open published reports, and edit
+  the defaults in `boku.yaml`. Embedded in the binary; no build step.
+- Explainer mode: `boku explain <topic>` (or `--explainer`,
+  `--mode explainer`) writes a visual explainer — big picture, key ideas,
+  architecture and process diagrams, step-by-step flows, glossary.
+- Whitepaper mode: `boku whitepaper <topic>` (or `--whitepaper`,
+  `--mode whitepaper`) writes the most detailed format, laid out like a
+  conference paper: abstract and keywords, highlights, numbered sections and
+  subsections, captioned figures and tables, `[n]` citations and a reference
+  list. Deep research; references always included. New `paper` layout
+  (`report.layout: paper`) and optional `keywords` in the document schema.
+- Codebase explainers: `boku explain <dir> [focus]` has agents read a local
+  repository with read-only `Read`/`Glob`/`Grep` tools and cite files by
+  path and line range (`research.codebase`).
+
+### Fixed
+
+- The report template rendered the executive summary and key findings twice,
+  with stray contents entries between them.
+
+### Changed
+
+- A failed fact check no longer blocks publication. Unresolved critical
+  issues and a `fail` verdict are shown in a red "Not verified" notice after
+  the executive summary and in the methodology appendix; the editor is told
+  not to state them as fact. New callout tone `unverified`.
+
 ## [0.1.0] - 2026-09-30
 
 ### Added

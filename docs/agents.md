@@ -6,10 +6,12 @@ Each role has a prompt in `prompts/<role>.md`. The system prompt is built as:
 common.md                  rules every agent follows (evidence, dates, tiers, untrusted web content)
 + researcher.md            method and output contract (research roles only)
 + <role>.md                the role's focus
++ explainer.md             explainer mode only: per-role guidance, and file-citation rules for codebases
++ whitepaper.md            whitepaper mode only: paper structure, attribution and results-with-conditions rules
 ```
 
-Prompts are Go `text/template`s with `{{.Today}}`, `{{.FreshnessDays}}` and
-`{{.Depth}}`. The user message is rendered by `agent.RenderPrompt` from the
+Prompts are Go `text/template`s with `{{.Today}}`, `{{.FreshnessDays}}`,
+`{{.Depth}}`, `{{.Mode}}`, `{{.Role}}` and `{{.Codebase}}`. The user message is rendered by `agent.RenderPrompt` from the
 task's objective, context, constraints and inputs.
 
 Every agent must return JSON matching a schema in `prompts/schemas/`:

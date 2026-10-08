@@ -62,7 +62,9 @@ func ResearchGate(store *research.Store, minSources int) Gate {
 	return g.done()
 }
 
-// FactGate checks the final fact-check round.
+// FactGate checks the final fact-check round. Unresolved critical issues do
+// not block publication: the report is published with those points marked as
+// not verified (see FactCheck.Unverified).
 func FactGate(last *FactCheck, rounds int) Gate {
 	g := &Gate{Name: "fact-check"}
 	if last == nil {
@@ -70,10 +72,10 @@ func FactGate(last *FactCheck, rounds int) Gate {
 		return g.done()
 	}
 	if last.Status == FactFail {
-		g.errorf("fact checker judged the evidence insufficient: %s", last.Summary)
+		g.warnf("fact checker judged the evidence insufficient: %s; the report is marked as partly unverified", last.Summary)
 	}
 	for _, is := range last.CriticalIssues() {
-		g.errorf("unresolved critical issue after %d round(s): %s", rounds, is.Description)
+		g.warnf("unresolved critical issue after %d round(s), marked as not verified in the report: %s", rounds, is.Description)
 	}
 	if last.Status == FactNeedsRevision && len(last.CriticalIssues()) == 0 {
 		g.warnf("fact checker still requested revisions after %d round(s); remaining issues are listed as limitations", rounds)
@@ -146,9 +148,9 @@ func EditorialGate(r *report.Report, buildIssues []report.Issue) Gate {
 	// Key findings are optional: the editor may shape a report without them
 	// (a brief, a verdict, a how-to), but a long report should have them.
 	switch n := len(r.KeyFindings); {
-	case n == 0 && len(r.Sections) >= 5:
+	case n == 0 && len(r.Sections) >= 5 && r.Layout == report.LayoutFull:
 		g.warnf("no key findings in a %d-section report", len(r.Sections))
-	case n > 0 && n < 3 && r.Layout != report.LayoutCompact:
+	case n > 0 && n < 3 && r.Layout == report.LayoutFull:
 		g.warnf("only %d key findings", n)
 	}
 	switch n := len(r.Sections); {

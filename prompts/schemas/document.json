@@ -92,7 +92,8 @@
                     "insight",
                     "caution",
                     "estimate",
-                    "note"
+                    "note",
+                    "unverified"
                   ]
                 },
                 "finding_ids": {
@@ -263,6 +264,13 @@
         "full",
         "compact"
       ]
+    },
+    "keywords": {
+      "type": "array",
+      "description": "whitepapers only: 4-8 index terms shown under the abstract",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

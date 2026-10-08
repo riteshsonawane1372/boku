@@ -64,7 +64,7 @@ board", "step by step", "just the numbers"). Choose accordingly:
 Research depth for this run is {{.Depth}} and the report mode is {{.Mode}}.
 Match the report to them, as far as the evidence supports; never pad thin
 evidence to reach a target.
-{{if ne .Mode "full"}}
+{{if or (eq .Mode "short") (eq .Mode "quick")}}
 This is a **{{.Mode}} report**: write 2–4 body sections of 1–3 paragraphs
 each, an executive summary of 1–3 paragraphs (100–250 words), 3–5 key
 findings or none, and 2 or more exhibits. Use `layout: compact`. Brevity
@@ -95,9 +95,10 @@ say what the reader should take from it, not just that it exists.
   that the data supports. Each section has a short, plain title (no
   numbering; the renderer numbers sections) and `blocks`:
   - `paragraph` (`text`), `subheading` (`text`), `bullets` (`items`),
-  - `callout` (`text`, optional `title`, `tone`: insight | caution | estimate | note)
+  - `callout` (`text`, optional `title`, `tone`: insight | caution | estimate | note | unverified)
     — at most one or two per section, for the point a skimming reader must
-    not miss; use `estimate` for forecasts and `caution` for contested data.
+    not miss; use `estimate` for forecasts, `caution` for contested data and
+    `unverified` for a point the fact checker could not verify.
   - `table` — see below.
   - `chart` — see below.
   - `diagram` — see below.
