@@ -1,0 +1,43 @@
+# Example output shown on the site and in the docs. Files live in
+# docs/examples and thumbnails in docs/images; both are mounted into the site.
+- title: Kubernetes as the Platform for AI Infrastructure
+  kind: Research report
+  format: PDF
+  file: kubernetes-ai-infrastructure.pdf
+  thumb: report-page-1.png
+  wide: false
+  meta: 24 pages · 71 sources · aurora theme
+  cmd: boku report "How Kubernetes is being used for AI infrastructure"
+- title: Open-Source Paths into LLM Inference for SRE and Go Engineers
+  kind: Research report
+  format: PDF
+  file: llm-inference-open-source-paths.pdf
+  thumb: example-llm-report.png
+  wide: false
+  meta: 19 pages · 126 sources · standard depth
+  cmd: boku report "Open-source projects to contribute to when moving from SRE into LLM inference"
+- title: Kubernetes as the Platform for AI Infrastructure
+  kind: Whitepaper layout
+  format: PDF
+  file: kubernetes-ai-infrastructure-paper-layout.pdf
+  thumb: example-paper.png
+  wide: false
+  meta: 23 pages · abstract, numbered sections, reference list
+  cmd: boku whitepaper "Kubernetes as the platform for AI infrastructure"
+  note: The Kubernetes report re-set in the paper layout to show the format. A run started with boku whitepaper also researches deeper and writes in paper style.
+- title: Kubernetes as the Platform for AI Infrastructure
+  kind: PowerPoint deck
+  format: PPTX
+  file: kubernetes-ai-infrastructure.pptx
+  thumb: example-k8s-deck.png
+  wide: true
+  meta: 36 slides · native charts · speaker notes
+  cmd: boku render runs/<run> --format pptx
+- title: Open-Source Paths into LLM Inference for SRE and Go Engineers
+  kind: PowerPoint deck
+  format: PPTX
+  file: llm-inference-open-source-paths.pptx
+  thumb: example-llm-deck.png
+  wide: true
+  meta: 43 slides · native charts · speaker notes
+  cmd: boku report "…" --format pdf,pptx

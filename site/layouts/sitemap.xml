@@ -1,0 +1,28 @@
+{{ printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+{{- /* Every page, with the date of the last commit that changed it. */ -}}
+{{- range .Data.Pages }}
+{{- if and .Permalink (not .Params.noindex) }}
+  <url>
+    <loc>{{ partial "canonical.html" . }}</loc>
+    {{- with .Lastmod }}
+    <lastmod>{{ .Format "2006-01-02T15:04:05-07:00" | safeHTML }}</lastmod>
+    {{- end }}
+    <changefreq>{{ .Params.changefreq | default "weekly" }}</changefreq>
+    <priority>{{ .Params.priority | default 0.5 }}</priority>
+    {{- range .Params.images }}
+    <image:image><image:loc>{{ . | absURL }}</image:loc></image:image>
+    {{- end }}
+  </url>
+{{- end }}
+{{- end }}
+{{- /* The example reports and decks are documents in their own right. */ -}}
+{{- range site.Data.examples }}
+  <url>
+    <loc>{{ printf "examples/%s" .file | absURL }}</loc>
+    <lastmod>{{ now.Format "2006-01-02T15:04:05-07:00" | safeHTML }}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+{{- end }}
+</urlset>

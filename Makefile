@@ -2,7 +2,7 @@ BIN     := bin/boku
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: build install test race short lint sample site clean
+.PHONY: build install test race short lint sample site serve clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/boku
@@ -29,14 +29,17 @@ sample:
 	BOKU_RENDER_OUT=$(CURDIR)/tmp go test ./internal/render -run 'TestPDF|TestHTMLRendersAllParts' -count=1
 	@echo "wrote tmp/sample.pdf, tmp/sample.html, tmp/sample.md"
 
-# Assemble the GitHub Pages site into ./_site (site/ is self-contained; this
-# refreshes the report images from docs/images).
+# Build the website (a Hugo site: hugo.toml, sources in site/) into ./_site.
+# Screenshots and example files are mounted from docs/, not copied. Nothing is
+# deployed here: the Pages workflow builds and publishes on every push to main.
 site:
-	rm -rf _site
-	cp docs/images/report-page-*.png docs/images/ui.png site/assets/img/
-	cp -R site _site
+	hugo --gc --minify --cleanDestinationDir
 	touch _site/.nojekyll
-	@echo "site assembled in _site/ (preview: python3 -m http.server -d _site 8000)"
+	@echo "site built in _site/"
+
+# Preview the website with live reload at http://localhost:1313.
+serve:
+	hugo server
 
 clean:
-	rm -rf bin tmp _site
+	rm -rf bin tmp _site resources .hugo_build.lock

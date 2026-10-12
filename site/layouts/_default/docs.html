@@ -1,0 +1,22 @@
+{{ define "main" }}
+{{ .Content }}
+{{ end }}
+{{ define "scripts" }}
+<script>
+// Highlight the section in view.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll(".docs-nav a"));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting && byId[e.target.id]) {
+        links.forEach(function (a) { a.classList.remove("on"); });
+        byId[e.target.id].classList.add("on");
+      }
+    });
+  }, { rootMargin: "-70px 0px -70% 0px" });
+  document.querySelectorAll(".prose h1[id], .prose h2[id]").forEach(function (h) { io.observe(h); });
+})();
+</script>
+{{ end }}

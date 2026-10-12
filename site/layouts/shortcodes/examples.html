@@ -1,0 +1,27 @@
+{{- /* Example output from data/examples.yaml. compact="true" renders the list
+       used in the docs; the default is the card grid on the home page. */ -}}
+{{- if .Get "compact" -}}
+<table>
+  <thead><tr><th>Example</th><th>Kind</th><th>Made with</th></tr></thead>
+  <tbody>
+  {{- range site.Data.examples }}
+    <tr><td><a href="{{ printf "examples/%s" .file | relURL }}">{{ .title }}</a><br><small>{{ .meta }}</small></td><td>{{ .kind }} ({{ .format }})</td><td><code style="white-space:normal">{{ .cmd }}</code>{{ with .note }}<br><small>{{ . }}</small>{{ end }}</td></tr>
+  {{- end }}
+  </tbody>
+</table>
+{{- else -}}
+<div class="examples">
+{{- range site.Data.examples }}
+  <article class="example{{ if .wide }} wide{{ end }}">
+    <a class="shot" href="{{ printf "examples/%s" .file | relURL }}" aria-label="Open {{ .title }} ({{ .kind }}, {{ .format }})">{{ partial "img.html" (dict "src" .thumb "alt" (printf "%s: %s" .kind .title) "sizes" (cond .wide "(max-width: 640px) 92vw, 560px" "(max-width: 640px) 92vw, 360px")) }}</a>
+    <div class="body">
+      <div class="tags"><span class="pill measured">{{ .kind }}</span><span class="fmt">{{ .format }}</span></div>
+      <h3><a href="{{ printf "examples/%s" .file | relURL }}">{{ .title }}</a></h3>
+      <p class="meta">{{ .meta }}</p>
+      {{ with .note }}<p class="note">{{ . }}</p>{{ end }}
+      <pre class="cmd"><span class="p">$ </span>{{ .cmd }}</pre>
+    </div>
+  </article>
+{{- end }}
+</div>
+{{- end -}}

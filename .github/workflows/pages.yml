@@ -1,9 +1,11 @@
 name: pages
 
+# The website is a Hugo site (hugo.toml, sources in site/). It is rebuilt on
+# every push to main, so the sitemap, canonical URLs and structured data always
+# match what is in the repository.
 on:
   push:
     branches: [main]
-    paths: [site/**, docs/images/**, docs/examples/**, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:
@@ -18,11 +20,23 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HUGO_VERSION: 0.155.2
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble site
+        with:
+          fetch-depth: 0 # full history: sitemap lastmod comes from git
+      - name: Install Hugo
+        run: |
+          curl -fsSL -o hugo.deb "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
+          sudo dpkg -i hugo.deb && rm hugo.deb
+      - id: pages
+        uses: actions/configure-pages@v5
+      - name: Build site
+        env:
+          HUGO_ENVIRONMENT: production
+          TZ: UTC
         run: make site
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

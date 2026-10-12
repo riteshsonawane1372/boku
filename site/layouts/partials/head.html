@@ -1,0 +1,45 @@
+{{- $title := .Title | default site.Title -}}
+{{- if eq .Kind "404" }}{{ $title = "Page not found — Boku" }}{{ end -}}
+{{- $desc := .Description | default site.Params.description -}}
+{{- $image := (.Params.ogImage | default site.Params.ogImage) | absURL -}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ $title }}</title>
+<meta name="description" content="{{ $desc }}">
+<meta name="robots" content="{{ if eq .Kind "404" }}noindex{{ else }}index, follow, max-image-preview:large, max-snippet:-1{{ end }}">
+<meta name="author" content="{{ site.Params.author }}">
+<meta name="generator" content="Hugo {{ hugo.Version }}">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<link rel="canonical" href="{{ partial "canonical.html" . }}">
+<meta property="og:type" content="{{ if .IsHome }}website{{ else }}article{{ end }}">
+<meta property="og:site_name" content="{{ site.Title }}">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="{{ $title }}">
+<meta property="og:description" content="{{ .Params.ogDescription | default $desc }}">
+<meta property="og:url" content="{{ partial "canonical.html" . }}">
+<meta property="og:image" content="{{ $image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Boku: research reports and decks you can audit">
+{{ if not .IsHome }}{{ with .Lastmod }}<meta property="article:modified_time" content="{{ .Format "2006-01-02T15:04:05Z07:00" }}">{{ end }}{{ end }}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ $title }}">
+<meta name="twitter:description" content="{{ $desc }}">
+<meta name="twitter:image" content="{{ $image }}">
+<meta name="twitter:image:alt" content="Boku: research reports and decks you can audit">
+<link rel="icon" href="{{ "favicon.svg" | relURL }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}">
+<link rel="manifest" href="{{ "site.webmanifest" | relURL }}">
+<link rel="sitemap" type="application/xml" href="{{ "sitemap.xml" | relURL }}">
+{{- /* Fonts are self-hosted: no third-party request stands between the visitor and the first paint. */}}
+<link rel="preload" as="font" type="font/woff2" href="{{ "assets/fonts/Inter.woff2" | relURL }}" crossorigin>
+{{- if .IsHome }}
+{{- with resources.Get "img/report-page-1.png" }}
+{{- $full := .Process "webp" }}{{ $half := .Process (printf "resize %dx webp" (div .Width 2)) }}
+<link rel="preload" as="image" type="image/webp" href="{{ $full.RelPermalink }}" imagesrcset="{{ $half.RelPermalink }} {{ $half.Width }}w, {{ $full.RelPermalink }} {{ $full.Width }}w" imagesizes="(max-width: 760px) 92vw, 440px" fetchpriority="high">
+{{- end }}
+{{- end }}
+{{- $css := resources.Get "site.css" | minify | fingerprint }}
+<link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}">
+{{ if ne .Kind "404" }}{{ partial "structured-data.html" . }}{{ end }}

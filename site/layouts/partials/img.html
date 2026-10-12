@@ -1,0 +1,8 @@
+{{- /* A responsive image from docs/images, served as WebP at two widths.
+       Params: src, alt, lazy (default true), priority, sizes, class. */ -}}
+{{- $r := resources.Get (printf "img/%s" .src) -}}
+{{- if not $r }}{{ errorf "img: docs/images/%s not found" .src }}{{ end -}}
+{{- $full := $r.Process "webp" -}}
+{{- $half := $r.Process (printf "resize %dx webp" (div $r.Width 2)) -}}
+{{- $lazy := ne (printf "%v" (.lazy | default true)) "false" -}}
+<img src="{{ $full.RelPermalink }}" srcset="{{ $half.RelPermalink }} {{ $half.Width }}w, {{ $full.RelPermalink }} {{ $full.Width }}w" sizes="{{ .sizes | default "(max-width: 760px) 92vw, 440px" }}" width="{{ $r.Width }}" height="{{ $r.Height }}" alt="{{ .alt }}"{{ with .class }} class="{{ . }}"{{ end }}{{ if $lazy }} loading="lazy"{{ end }}{{ with .priority }} fetchpriority="{{ . }}"{{ end }} decoding="async">

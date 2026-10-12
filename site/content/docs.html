@@ -1,37 +1,15 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boku Documentation</title>
-<meta name="description" content="Install Boku, run full, short and quick research reports, academic-style whitepapers, or visual explainers of a topic or codebase, configure custom models and local Ollama, and understand the pipeline, references file and quality gates.">
-<link rel="canonical" href="https://boku.riteshsonawane.com/docs.html">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d3b66'/%3E%3Cpath d='M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z' fill='none' stroke='%237cc4ff' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/site.css">
-</head>
-<body>
-
-<header class="nav">
-  <div class="wrap">
-    <a class="brand" href="./" aria-label="Boku home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0d3b66"/><path d="M9 8h8.5a4.5 4.5 0 0 1 1.6 8.7A4.8 4.8 0 0 1 17.8 26H9z" fill="none" stroke="#7cc4ff" stroke-width="2.6" stroke-linejoin="round"/></svg>
-      Boku <span style="color:var(--faint);font-weight:500">docs</span>
-    </a>
-    <nav class="nav-links" aria-label="Main">
-      <a href="./#pipeline">How it works</a>
-      <a href="./#cost">Cost</a>
-      <button class="theme-toggle" type="button" aria-label="Toggle colour theme" data-theme-toggle>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
-      <a class="gh" href="https://github.com/riteshsonawane1372/boku">GitHub</a>
-    </nav>
-  </div>
-</header>
-
-<div class="wrap docs">
+---
+title: "Boku Docs — Install, CLI, PowerPoint Export & Models"
+linkTitle: "Documentation"
+description: "Install Boku and run cited research reports, PowerPoint decks and whitepapers. CLI flags, expert scoping, themes, custom models and quality gates."
+layout: docs
+changefreq: weekly
+priority: 0.8
+images:
+  - assets/img/og.png
+---
+<div class="docs-hero">
+<main class="wrap docs">
   <aside class="docs-nav" aria-label="Documentation">
     <details open>
       <summary>On this page</summary>
@@ -41,7 +19,11 @@
       <a href="#quick-start">Quick start</a>
       <div class="group">Using Boku</div>
       <a href="#modes">Report modes</a>
+      <a href="#refine">Expert scoping</a>
+      <a href="#slides">Slides (PowerPoint)</a>
+      <a href="#themes">Themes and templates</a>
       <a href="#whitepapers">Whitepapers</a>
+      <a href="#examples">Examples</a>
       <a href="#explainers">Explainers</a>
       <a href="#references">References file</a>
       <a href="#report-shape">Report shape</a>
@@ -65,16 +47,16 @@
 
   <article class="prose">
     <h1 id="overview">Boku documentation</h1>
-    <p class="lead">Boku is an open-source multi-agent research engine written in Go. It plans a research programme, runs specialised agents in parallel, keeps every claim linked to its sources, has an independent critic check the evidence, and renders a professional report as PDF, HTML and Markdown.</p>
-    <p>Agents supply content and data; Boku's own code does everything else — de-duplicating sources, resolving citations, checking that chart values appear in the evidence, and typesetting. By default agents run on <a href="https://docs.claude.com/claude-code">Claude Code</a>. With a config file they run on any OpenAI-compatible endpoint or a local Ollama model.</p>
+    <p class="lead">Boku is an open-source multi-agent research engine written in Go. It plans a research programme, runs specialised agents in parallel, keeps every claim linked to its sources, has an independent critic check the evidence, and renders a professional report as PDF, HTML and Markdown, or a PowerPoint deck.</p>
+    <p>Agents supply content and data; Boku's own code does everything else — de-duplicating sources, resolving citations, checking that chart values appear in the evidence, and typesetting. By default agents run on <a href="https://docs.claude.com/claude-code" rel="noopener">Claude Code</a>. With a config file they run on any OpenAI-compatible endpoint or a local Ollama model.</p>
 
     <h2 id="install">Install</h2>
     <p>Requirements:</p>
     <ul>
       <li>Go 1.25 or newer (to build)</li>
-      <li><a href="https://docs.claude.com/claude-code">Claude Code</a> installed and logged in (<code>claude</code> on your <code>PATH</code>) — the default runtime</li>
+      <li><a href="https://docs.claude.com/claude-code" rel="noopener">Claude Code</a> installed and logged in (<code>claude</code> on your <code>PATH</code>) — the default runtime</li>
       <li>Google Chrome, Chromium, Edge or Brave for PDF output</li>
-      <li>Optional: <a href="https://ollama.com">Ollama</a> with a small model for <code>--quick</code> and local formatting</li>
+      <li>Optional: <a href="https://ollama.com" rel="noopener">Ollama</a> with a small model for <code>--quick</code> and local formatting</li>
     </ul>
 <pre>go install github.com/riteshsonawane1372/boku/cmd/boku@latest
 boku doctor</pre>
@@ -99,6 +81,13 @@ boku report "Is Postgres 18 async I/O worth enabling?" --short
 <span class="c"># Quick report on your local Ollama model: no Claude Code tokens</span>
 boku report "Main approaches to GPU sharing on Kubernetes" --quick
 
+<span class="c"># Let an expert ask a few questions and sharpen the topic first</span>
+boku report "EV charging market" --refine
+
+<span class="c"># A PowerPoint deck, or a deck alongside the PDF</span>
+boku slides "State of EV charging in Europe"
+boku report "…" --format pdf,pptx
+
 <span class="c"># Put the numbered source list inside the PDF too</span>
 boku report "…" --save-ref
 
@@ -115,11 +104,69 @@ boku report "…" --config config.yaml</pre>
         <tr><td><b>Short</b></td><td><code>--short</code> (<code>--mode short</code>)</td><td>Quick depth, at most 3 workstreams, one fact-check round without follow-ups, and a brief of 2–4 sections in the compact layout (title block, no cover or contents).</td></tr>
         <tr><td><b>Quick</b></td><td><code>--quick</code> (<code>--mode quick</code>)</td><td>Every role on the local Ollama model; Boku does the web search itself; fact-checking is skipped; compact layout. Spends no Claude Code tokens.</td></tr>
         <tr><td><b>Whitepaper</b></td><td><code>boku whitepaper</code>, <code>--whitepaper</code> (<code>--mode whitepaper</code>)</td><td>The most detailed format: a research paper with abstract, keywords, numbered sections and subsections, captioned figures and tables, <code>[n]</code> citations and a reference list. Deep research; references always included; paper layout. See <a href="#whitepapers">whitepapers</a>.</td></tr>
+        <tr><td><b>Slides</b></td><td><code>boku slides</code>, <code>--slides</code> (<code>--mode slides</code>)</td><td>A presentation: the editor writes 4–7 tight sections, each with a one-sentence headline, and the run publishes a PowerPoint deck (<code>.pptx</code>) with speaker notes. See <a href="#slides">Slides</a>.</td></tr>
         <tr><td><b>Explainer</b></td><td><code>boku explain</code>, <code>--explainer</code> (<code>--mode explainer</code>)</td><td>A visual explainer instead of a report: big picture, key ideas, architecture and process diagrams, step-by-step flows, glossary. Up to 4 workstreams, one follow-up round. Given a directory, explains that codebase. See <a href="#explainers">explainers</a>.</td></tr>
       </tbody>
     </table>
     <p>Modes set defaults; explicit flags still win. <code>--short --agents 4</code> keeps four workstreams, <code>--quick --local-model qwen2.5:14b</code> uses a bigger local model.</p>
     <div class="callout warn"><p><b>Quick reports are a first pass.</b> A small local model reads fewer pages and nothing checks its claims. Boku still refuses sources it did not fetch and drops citations to unknown findings, and the methodology appendix says the report was not fact-checked. Use <code>--short</code> or the default when accuracy matters.</p></div>
+
+    <h2 id="refine">Expert scoping</h2>
+    <p>A one-line topic leaves the planner to guess the scope. With <code>--refine</code>, a scoping expert (the <code>scoper</code> role) reads the request before anything else runs, looks the subject up briefly, and asks three to five questions written for that topic: which reading of an ambiguous term you mean, the geography or period, what to compare, the decision the report supports. Each question comes with concrete options; you can pick one or several, type your own answer, or press Enter to let the expert decide.</p>
+<pre>boku report "EV charging market" --refine
+
+1/3  Which part of the market should the report size?
+     1. Public fast charging (DC)
+     2. Home and workplace (AC)
+     3. Fleet depots
+   > 1
+…
+Refined topic
+-------------
+Assess the EU public DC fast-charging market for an investment case: …
+
+Use this as the topic? [Y]es / [e]dit / [o]riginal / [q]uit  (scoping cost $0.14) ></pre>
+    <p>The expert then rewrites the request into a brief: the refined topic, what is in scope, what is deliberately left out, and the assumption made for every question you skipped. <b>Nothing is researched until you confirm.</b> You can accept the topic, edit it, keep your original wording, or quit. The confirmed topic becomes the run's topic; the interview is saved in the run directory as <code>scope.json</code> and <code>scope.md</code>, and the planner is told to honour your answers.</p>
+    <p>In the <a href="#web-ui">web interface</a> the same interview is the <b>Refine with an expert</b> button under the topic box: answers are one-click chips and the refined topic is editable before you accept it.</p>
+    <div class="callout"><p>Scoping is two small agent calls (questions, then the brief) on the configured provider; their cost is recorded with the run. <code>--refine</code> needs an interactive terminal, so leave it off in scripts.</p></div>
+
+    <h2 id="slides">Slides (PowerPoint)</h2>
+    <p>Any report can be published as a 16:9 PowerPoint deck: add <code>pptx</code> to <code>--format</code>. <code>boku slides</code> goes further and has the report <em>written</em> for slides: each section gets a one-sentence takeaway that becomes the slide headline, paragraphs open with the sentence that carries the point, and there are more exhibits.</p>
+<pre>boku slides "State of EV charging in Europe"       # a deck
+boku report "…" --format pdf,pptx                   # report and deck from one run
+boku render runs/&lt;run&gt; --format pptx                # a deck from a finished run, no agents, no cost</pre>
+    <table>
+      <thead><tr><th>Slide</th><th>Built from</th></tr></thead>
+      <tbody>
+        <tr><td>Cover, agenda</td><td>Title, subtitle, report type, section titles and takeaways</td></tr>
+        <tr><td>Executive summary</td><td>The opening sentence of each summary paragraph, with the headline metric tiles</td></tr>
+        <tr><td>Key findings</td><td>Finding cards, six to a slide</td></tr>
+        <tr><td>Section slides</td><td>The takeaway as headline; the first sentence of each paragraph as a bullet; callouts as a highlighted band</td></tr>
+        <tr><td>Exhibit slides</td><td>Every chart, diagram, table and metrics block on its own slide, with the adjacent paragraph as a “what it shows” panel and the source line</td></tr>
+        <tr><td>Not verified</td><td>Anything the fact-checker could not verify, in red, straight after the summary</td></tr>
+        <tr><td>Sources, method</td><td>The source list (with <code>--save-ref</code>) and a closing slide on how the deck was made</td></tr>
+      </tbody>
+    </table>
+    <p>Charts and diagrams are drawn as native shapes, not pictures, so they stay sharp and can be recoloured or edited; tables are real tables. Speaker notes carry the full text behind each slide with its <code>[n]</code> citations. The file is written directly as Office Open XML by Boku: no template, no office suite, no Chrome. It opens in PowerPoint, Keynote and Google Slides.</p>
+
+    <h2 id="themes">Themes and templates</h2>
+    <p>The report and the deck share a theme: cover design, accent colours and the chart palette. With <code>report.theme: auto</code> (the default) the editor picks the one that suits what it wrote; set it yourself with <code>--theme</code>. Re-rendering a finished run with another theme costs nothing.</p>
+    <table>
+      <thead><tr><th>Theme</th><th>Look</th><th>Suits</th></tr></thead>
+      <tbody>
+        <tr><td><code>aurora</code></td><td>Indigo and violet gradient mesh on white</td><td>Technology, product, AI</td></tr>
+        <tr><td><code>meridian</code></td><td>Full-bleed navy cover with teal</td><td>Markets, finance, company and industry analysis</td></tr>
+        <tr><td><code>ember</code></td><td>Warm orange band</td><td>Strategy, decisions, case studies, briefs</td></tr>
+        <tr><td><code>slate</code></td><td>Monochrome, typographic</td><td>Policy, regulation, formal reviews</td></tr>
+      </tbody>
+    </table>
+    <p>The structure is dynamic too. Besides paragraphs, bullets, callouts, tables and diagrams, the editor can use:</p>
+    <ul>
+      <li><b>Headline metrics</b>: three or four number tiles under the executive summary and on the cover, and <code>metrics</code> blocks inside sections.</li>
+      <li><b>Section takeaways</b>: one sentence under each heading that states the section's point.</li>
+      <li><b>Six chart forms</b>: <code>column</code>, <code>stacked</code>, <code>bar</code>, <code>line</code>, <code>area</code> and <code>donut</code>.</li>
+    </ul>
+    <p>Metrics follow the same rule as charts: a tile is published only if every number on it appears in the cited findings. The typeface (Inter) is embedded in the HTML, so a PDF looks the same on every machine.</p>
 
     <h2 id="whitepapers">Whitepapers</h2>
     <p><code>boku whitepaper</code> writes the subject up the way a conference paper or arXiv preprint would: a title block, an <em>Abstract</em> with keywords, optional <em>Highlights</em>, then numbered sections — Introduction (ending with the paper's contributions and organisation), Background, Related Work, the core technical sections, Empirical Evidence, Discussion, Open Problems and Future Directions, Conclusion — followed by <em>References</em> and lettered appendices (methodology, evidence register).</p>
@@ -132,7 +179,11 @@ boku whitepaper "…" --depth standard --max-cost 25     # cheaper; flags still 
       <li><b>Honesty</b>: Boku runs no experiments. The paper surveys and argues from the cited work, never presents a sourced result as its own, and says so in a footnote on the first page.</li>
       <li>Equations are written inline in plain text with Unicode (<em>softmax(QKᵀ / √dₖ)</em>); there is no LaTeX typesetting.</li>
     </ul>
-    <figure class="paper-preview"><img src="assets/img/whitepaper-layout.png" alt="First page of a whitepaper in Boku's paper layout: centred title between rules, author line, abstract, keywords, highlights and section 1" loading="lazy" width="909" height="1287"><figcaption>Layout preview: first page of the paper layout, rendered from Boku's fictional test fixture.</figcaption></figure>
+    <figure class="paper-preview">{{< img src="whitepaper-layout.png" alt="First page of a whitepaper in Boku's paper layout: centred title between rules, author line, abstract, keywords, highlights and section 1" >}}<figcaption>Layout preview: first page of the paper layout, rendered from Boku's fictional test fixture.</figcaption></figure>
+
+    <h2 id="examples">Examples</h2>
+    <p>Real output, published unedited. The reports and decks come from the same runs, so you can compare a page with its slide.</p>
+    {{< examples compact="true" >}}
 
     <h2 id="explainers">Explainers</h2>
     <p><code>boku explain</code> runs the same pipeline — plan, research, fact-check, synthesis, editing — but the goal is understanding, not a verdict. The editor writes for a smart newcomer: <em>The big picture</em> first, then <em>Key ideas</em>, an architecture diagram of the whole, a section per main flow with a process diagram and numbered steps, a glossary, and <em>Where to go next</em>.</p>
@@ -176,7 +227,7 @@ boku report "How TLS 1.3 works" --explainer                  # same as boku expl
 <pre>boku ui                          <span class="c"># serves http://127.0.0.1:7878 and opens the browser</span>
 boku ui --port 9000 --no-open
 boku ui --config team.yaml       <span class="c"># read and save this file instead of ./boku.yaml</span></pre>
-    <p><a href="assets/img/ui.png"><img src="assets/img/ui.png" alt="The New report page: mode cards, the settings form and a summary of the run" loading="lazy" width="1685" height="1298" style="border:1px solid var(--line);border-radius:12px"></a></p>
+    <p><a href="assets/img/ui.png">{{< img src="ui.png" alt="The New report page: mode cards, the settings form and a summary of the run" sizes="(max-width: 960px) 92vw, 620px" >}}</a></p>
     <table>
       <thead><tr><th>Page</th><th>What it does</th></tr></thead>
       <tbody>
@@ -204,6 +255,7 @@ boku ui --config team.yaml       <span class="c"># read and save this file inste
 boku explain &lt;topic|dir&gt; [focus] [flags]
                                 visual explainer of a topic, or of a local codebase
 boku whitepaper &lt;topic&gt; [flags] detailed paper in academic/industry format
+boku slides &lt;topic&gt; [flags]     presentation: a PowerPoint deck with speaker notes
 boku resume &lt;run-dir&gt; [flags]   continue an interrupted or blocked run
 boku render &lt;run-dir&gt; [flags]   rebuild outputs from a run's artifacts (no agents, no cost)
 boku status &lt;run-dir&gt;           stages, tasks and cost of a run
@@ -213,7 +265,9 @@ boku init [path]                write a commented boku.yaml</pre>
     <table>
       <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
       <tbody>
-        <tr><td><code>--short</code>, <code>--quick</code>, <code>--explainer</code>, <code>--whitepaper</code>, <code>--mode M</code></td><td>report mode (see <a href="#modes">modes</a>)</td></tr>
+        <tr><td><code>--short</code>, <code>--quick</code>, <code>--explainer</code>, <code>--whitepaper</code>, <code>--slides</code>, <code>--mode M</code></td><td>report mode (see <a href="#modes">modes</a>)</td></tr>
+        <tr><td><code>--refine</code></td><td>an expert asks topic-specific questions first and rewrites the topic for you to confirm (see <a href="#refine">expert scoping</a>)</td></tr>
+        <tr><td><code>--theme auto|aurora|meridian|ember|slate</code></td><td>visual template of the report and deck (see <a href="#themes">themes</a>)</td></tr>
         <tr><td><code>--save-ref</code></td><td>include the source list and evidence register in the document</td></tr>
         <tr><td><code>--local-model TAG</code></td><td>Ollama model for <code>--quick</code> and formatting</td></tr>
         <tr><td><code>--depth quick|standard|deep</code></td><td>how much research to do</td></tr>
@@ -223,7 +277,7 @@ boku init [path]                write a commented boku.yaml</pre>
         <tr><td><code>--freshness 30d|6m|1y</code></td><td>window within which information counts as current</td></tr>
         <tr><td><code>--sources "…"</code></td><td>preferred sources or source types</td></tr>
         <tr><td><code>--min-sources N</code></td><td>distinct sources the research gate expects</td></tr>
-        <tr><td><code>--format pdf,html,md</code></td><td>outputs to publish</td></tr>
+        <tr><td><code>--format pdf,html,md,pptx</code></td><td>outputs to publish; <code>pptx</code> is a PowerPoint deck</td></tr>
         <tr><td><code>--model M</code></td><td>model for all agents on the main provider</td></tr>
         <tr><td><code>--iterations N</code></td><td>fact-check → follow-up research rounds</td></tr>
         <tr><td><code>--config FILE</code></td><td>configuration file (default <code>./boku.yaml</code> if present)</td></tr>
@@ -326,7 +380,8 @@ report:
   mode: full                     <span class="c"># full | short | quick | explainer | whitepaper</span>
   layout: auto                   <span class="c"># auto | full | compact | paper</span>
   include_references: false      <span class="c"># --save-ref</span>
-  formats: [pdf]
+  theme: auto                # auto | aurora | meridian | ember | slate
+  formats: [pdf]             # pdf, html, md, pptx
   page_size: A4
   author: ""
 
@@ -417,32 +472,5 @@ output:
       </tbody>
     </table>
   </article>
+</main>
 </div>
-
-<footer>
-  <div class="wrap">
-    <span>Boku · Apache-2.0</span>
-    <nav aria-label="Footer"><a href="./">Home</a><a href="https://github.com/riteshsonawane1372/boku">GitHub</a></nav>
-  </div>
-</footer>
-
-<script src="assets/site.js"></script>
-<script>
-// Highlight the section in view.
-(function () {
-  var links = Array.prototype.slice.call(document.querySelectorAll(".docs-nav a"));
-  var byId = {};
-  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (e.isIntersecting && byId[e.target.id]) {
-        links.forEach(function (a) { a.classList.remove("on"); });
-        byId[e.target.id].classList.add("on");
-      }
-    });
-  }, { rootMargin: "-70px 0px -70% 0px" });
-  document.querySelectorAll(".prose h1[id], .prose h2[id]").forEach(function (h) { io.observe(h); });
-})();
-</script>
-</body>
-</html>

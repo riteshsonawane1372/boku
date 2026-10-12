@@ -1,23 +1,31 @@
-// Boku site: theme toggle, copy buttons, terminal replay, cost bars.
+// Boku site: copy buttons, the interview and terminal replays, cost bars.
+// No scroll effects: the page is meant to sit still.
 (function () {
   "use strict";
   var root = document.documentElement;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Theme: follows the system unless the visitor picks one.
-  try {
-    var saved = localStorage.getItem("boku-theme");
-    if (saved) root.setAttribute("data-theme", saved);
-  } catch (e) {}
-  document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var current = root.getAttribute("data-theme") ||
-        (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-      var next = current === "light" ? "dark" : "light";
-      root.setAttribute("data-theme", next);
-      try { localStorage.setItem("boku-theme", next); } catch (e) {}
-    });
-  });
+  // Expert interview demo: answers get picked one by one, then the brief appears.
+  var iv = document.getElementById("interview");
+  if (iv) {
+    var picks = iv.querySelectorAll("[data-pick]");
+    var brief = iv.querySelector(".iv-brief");
+    var play = function () {
+      picks.forEach(function (c) { c.classList.remove("on"); });
+      brief.style.visibility = "hidden";
+      picks.forEach(function (c, i) { setTimeout(function () { c.classList.add("on"); }, 700 + i * 650); });
+      setTimeout(function () { brief.style.visibility = "visible"; }, 900 + picks.length * 650);
+    };
+    if (reduced || !("IntersectionObserver" in window)) {
+      picks.forEach(function (c) { c.classList.add("on"); });
+    } else {
+      var timer;
+      new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) { play(); timer = setInterval(play, 9000); }
+        else { clearInterval(timer); }
+      }, { threshold: 0.4 }).observe(iv);
+    }
+  }
 
   document.querySelectorAll("[data-copy]").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -54,10 +62,12 @@
       ["step", "[6/7] Running quality gates"],
       ["info", "INFO  editorial gate passed  warnings=0"],
       ["step", "[7/7] Rendering report"],
-      ["info", "INFO  PDF rendered  pages=32  size=\"1060 KB\""],
+      ["info", "INFO  PDF rendered  pages=24  size=\"1322 KB\""],
+      ["info", "INFO  deck rendered  size=\"144 KB\""],
       ["", ""],
       ["ok", "✓ Report generated"],
       ["dim", "  reports/kubernetes-platform-ai-infrastructure.pdf"],
+      ["dim", "  reports/kubernetes-platform-ai-infrastructure.pptx"],
       ["dim", "  reports/kubernetes-platform-ai-infrastructure.references.json"],
       ["cost", "Cost: $7.73"]
     ];
@@ -93,8 +103,8 @@
 
   // Cost bars from recorded runs (manifest.json of each run).
   var ROLE_COLORS = {
-    planner: "#b69cff", research: "#7cc4ff", followup: "#4f9cf0",
-    "fact-checker": "#f5b454", synthesizer: "#6fdc9b", editorial: "#ff8a80"
+    planner: "#8a8a8a", research: "#0a0a0a", followup: "#5c5c5c",
+    "fact-checker": "#ffe600", synthesizer: "#0b3bff", editorial: "#ffffff"
   };
   var ROLE_NAMES = {
     planner: "Planner", research: "Researchers", followup: "Follow-up research",

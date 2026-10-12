@@ -1,0 +1,17 @@
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="{{ "" | relURL }}" aria-label="Boku home">Boku{{ if not .IsHome }} <span>docs</span>{{ end }}</a>
+    <nav class="nav-links" aria-label="Main">
+      {{- $home := cond .IsHome "" ("" | relURL) }}
+      <a href="{{ $home }}#how-it-works">How it works</a>
+      <a href="{{ $home }}#expert">Expert</a>
+      <a href="{{ $home }}#output">Output</a>
+      <a href="{{ $home }}#examples">Examples</a>
+      <a href="{{ $home }}#modes">Modes</a>
+      <a href="{{ $home }}#cost">Cost</a>
+      {{ if .IsHome }}<a href="#faq">FAQ</a>
+      <a class="keep" href="{{ "docs.html" | relURL }}">Docs</a>{{ else }}<a class="keep" href="{{ "" | relURL }}">Home</a>{{ end }}
+      <a class="gh" href="{{ site.Params.repo }}" rel="noopener">{{ partial "github-icon.html" . }}GitHub</a>
+    </nav>
+  </div>
+</header>

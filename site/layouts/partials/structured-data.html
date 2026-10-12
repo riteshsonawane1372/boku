@@ -1,0 +1,43 @@
+{{- /* JSON-LD, generated from the page, the site config and the data files so
+       it can never drift from what the page shows. */ -}}
+{{- $modified := .Lastmod.Format "2006-01-02T15:04:05Z07:00" -}}
+{{- $author := dict "@type" "Person" "name" site.Params.author "url" site.Params.authorURL -}}
+{{- $graph := slice -}}
+{{- if .IsHome -}}
+  {{- $files := slice -}}
+  {{- range site.Data.examples -}}
+    {{- $files = $files | append (dict "@type" "DigitalDocument" "name" (printf "%s (%s, %s)" .title .kind .format) "url" (printf "examples/%s" .file | absURL) "encodingFormat" (cond (eq .format "PPTX") "application/vnd.openxmlformats-officedocument.presentationml.presentation" "application/pdf")) -}}
+  {{- end -}}
+  {{- $app := dict
+      "@type" "SoftwareApplication" "@id" (printf "%s#software" site.BaseURL) "name" site.Title
+      "applicationCategory" "DeveloperApplication" "applicationSubCategory" "AI research report generator"
+      "operatingSystem" "macOS, Linux, Windows" "description" .Description "url" site.BaseURL
+      "downloadUrl" site.Params.repo "softwareHelp" ("docs.html" | absURL) "codeRepository" site.Params.repo
+      "programmingLanguage" "Go" "license" site.Params.license "isAccessibleForFree" true
+      "offers" (dict "@type" "Offer" "price" "0" "priceCurrency" "USD")
+      "image" (site.Params.ogImage | absURL) "screenshot" ("assets/img/report-page-1.png" | absURL)
+      "author" $author "dateModified" $modified "workExample" $files
+      "featureList" (slice
+        "Multi-agent research pipeline with independent fact-checking"
+        "Cited PDF, HTML and Markdown reports"
+        "PowerPoint (PPTX) deck export with speaker notes"
+        "Expert scoping interview that refines the topic"
+        "Charts and metrics traced to evidence"
+        "Four visual themes"
+        "Runs on Claude Code, OpenAI-compatible endpoints or local Ollama") -}}
+  {{- $questions := slice -}}
+  {{- range site.Data.faq -}}
+    {{- $questions = $questions | append (dict "@type" "Question" "name" .q "acceptedAnswer" (dict "@type" "Answer" "text" .a)) -}}
+  {{- end -}}
+  {{- $graph = slice $app
+      (dict "@type" "WebSite" "@id" (printf "%s#website" site.BaseURL) "name" site.Title "url" site.BaseURL "description" site.Params.description "dateModified" $modified)
+      (dict "@type" "FAQPage" "mainEntity" $questions) -}}
+{{- else -}}
+  {{- $graph = slice
+      (dict "@type" "TechArticle" "headline" (.LinkTitle | default .Title) "description" .Description "url" .Permalink "inLanguage" "en"
+            "dateModified" $modified "author" $author "about" (dict "@id" (printf "%s#software" site.BaseURL)))
+      (dict "@type" "BreadcrumbList" "itemListElement" (slice
+            (dict "@type" "ListItem" "position" 1 "name" site.Title "item" site.BaseURL)
+            (dict "@type" "ListItem" "position" 2 "name" (.LinkTitle | default .Title) "item" .Permalink))) -}}
+{{- end -}}
+<script type="application/ld+json">{{ dict "@context" "https://schema.org" "@graph" $graph | jsonify | safeJS }}</script>

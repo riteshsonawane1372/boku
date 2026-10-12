@@ -1,0 +1,68 @@
+# The Boku website (https://boku.riteshsonawane.com) is a Hugo site. Its
+# sources are in site/; this file is at the repository root so `hugo server`
+# and `hugo` work from here. Example files and screenshots are mounted from
+# docs/, so the site never carries copies of them.
+baseURL = "https://boku.riteshsonawane.com/"
+title = "Boku"
+languageCode = "en"
+defaultContentLanguage = "en"
+publishDir = "_site"
+uglyURLs = true            # keeps /docs.html, the URL the site has always had
+enableRobotsTXT = true
+enableGitInfo = true       # lastmod in the sitemap and structured data comes from git
+disableKinds = ["taxonomy", "term", "RSS", "section"]
+
+[frontmatter]
+  lastmod = ["lastmod", ":git", ":fileModTime"]
+
+[sitemap]
+  changefreq = "weekly"
+  priority = 0.5
+  filename = "sitemap.xml"
+
+[params]
+  description = "Multi-agent research reports and decks you can audit."
+  author = "Ritesh Sonawane"
+  authorURL = "https://github.com/riteshsonawane1372"
+  repo = "https://github.com/riteshsonawane1372/boku"
+  ogImage = "assets/img/og.png"
+  license = "https://www.apache.org/licenses/LICENSE-2.0"
+
+[module]
+  [[module.mounts]]
+    source = "site/content"
+    target = "content"
+  [[module.mounts]]
+    source = "site/data"
+    target = "data"
+  [[module.mounts]]
+    source = "site/layouts"
+    target = "layouts"
+  [[module.mounts]]
+    source = "site/static"
+    target = "static"
+  [[module.mounts]]
+    source = "site/assets"
+    target = "assets"
+  # Screenshots: published as they are (stable URLs for the social image, the
+  # sitemap and the README) and also available to Hugo's image pipeline,
+  # which serves the pages resized WebP versions.
+  [[module.mounts]]
+    source = "docs/images"
+    target = "static/assets/img"
+  [[module.mounts]]
+    source = "docs/images"
+    target = "assets/img"
+  [[module.mounts]]
+    source = "docs/examples"
+    target = "static/examples"
+
+[markup.goldmark.renderer]
+  unsafe = true
+
+[minify]
+  disableXML = true
+
+[imaging]
+  quality = 82
+  resampleFilter = "Lanczos"

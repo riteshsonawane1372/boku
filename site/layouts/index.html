@@ -1,0 +1,6 @@
+{{ define "main" }}
+<main id="main">
+{{ .Content }}
+</main>
+{{ end }}
+{{ define "scripts" }}{{ $js := resources.Get "pipeline.js" | minify | fingerprint }}<script src="{{ $js.RelPermalink }}" integrity="{{ $js.Data.Integrity }}" defer></script>{{ end }}

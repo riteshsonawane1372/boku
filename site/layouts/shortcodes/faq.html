@@ -1,0 +1,5 @@
+<div class="faq">
+{{- range site.Data.faq }}
+  <details><summary>{{ .q }}</summary><p>{{ .a }}</p></details>
+{{- end }}
+</div>

@@ -1,0 +1,2 @@
+{{- /* The home page's canonical URL is the site root, not /index.html. */ -}}
+{{- if .IsHome }}{{ site.BaseURL }}{{ else }}{{ .Permalink }}{{ end -}}
