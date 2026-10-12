@@ -271,3 +271,62 @@ func TestPaperLayout(t *testing.T) {
 		t.Error("keywords and the Abstract label belong to the paper layout only")
 	}
 }
+
+func TestMetricsMustBeTraceable(t *testing.T) {
+	r, issues := build(Document{
+		ExecutiveSummary: []string{"x [F001]"},
+		Metrics: []Metric{
+			{Value: "USD 4.2bn", Label: "revenue", Detail: "FY2025 [F001].", Trend: "up", FindingIDs: []string{"F001"}},
+			{Value: "USD 9.9bn", Label: "invented", FindingIDs: []string{"F001"}},
+			{Value: "31%", Label: "uncited"},
+			{Value: "31%", Label: "share", Trend: "sideways", FindingIDs: []string{"F002"}},
+		},
+		Sections: []Section{{Title: "S", Takeaway: "Revenue rose [F001].", Blocks: []Block{
+			{Type: BlockMetrics, Title: "At a glance", Metrics: []Metric{{Value: "31%", Label: "share", FindingIDs: []string{"F002"}}}},
+			{Type: BlockMetrics, Metrics: []Metric{{Value: "77%", Label: "nowhere", FindingIDs: []string{"F002"}}}},
+		}}},
+	})
+	if len(r.Metrics) != 2 || r.Metrics[0].Value != "USD 4.2bn" || r.Metrics[1].Trend != "" || !HasCitation(r.Metrics[0].Detail) {
+		t.Errorf("headline metrics = %+v", r.Metrics)
+	}
+	if len(r.Sections) != 1 || len(r.Sections[0].Blocks) != 1 || len(r.Sections[0].Blocks[0].Metrics) != 1 {
+		t.Fatalf("metrics blocks = %+v", r.Sections)
+	}
+	if !HasCitation(r.Sections[0].Takeaway) {
+		t.Error("takeaway citation not resolved")
+	}
+	if len(errorsOf(issues)) != 0 {
+		t.Error(errorsOf(issues))
+	}
+}
+
+func TestThemeResolution(t *testing.T) {
+	for _, c := range []struct{ configured, requested, reportType, want string }{
+		{"auto", "", "Research Report", "aurora"},
+		{"auto", "ember", "Market Analysis", "ember"},
+		{"slate", "ember", "Market Analysis", "slate"},
+		{"auto", "neon", "Market Analysis", "meridian"},
+		{"", "", "Technology Case Study", "ember"},
+	} {
+		if got := resolveTheme(c.configured, c.requested, c.reportType); got != c.want {
+			t.Errorf("resolveTheme(%q, %q, %q) = %q, want %q", c.configured, c.requested, c.reportType, got, c.want)
+		}
+	}
+}
+
+func TestChartKinds(t *testing.T) {
+	chart := func(kind string, series ...Series) Block {
+		return Block{Type: BlockChart, FindingIDs: []string{"F001"}, Chart: &Chart{Kind: kind, Title: "t", Units: "u", Labels: []string{"2024", "2025"}, Series: series}}
+	}
+	rev := Series{Name: "Revenue", Values: []float64{3500, 4200}}
+	r, _ := build(Document{Sections: []Section{{Title: "S", Blocks: []Block{
+		chart("donut", rev), chart("donut", rev, rev), chart("area", rev), chart("stacked", rev, rev), chart("pie", rev),
+	}}}})
+	var kinds []string
+	for _, b := range r.Sections[0].Blocks {
+		kinds = append(kinds, b.Chart.Kind)
+	}
+	if got := strings.Join(kinds, ","); got != "donut,column,area,stacked,column" {
+		t.Errorf("kinds = %s", got)
+	}
+}

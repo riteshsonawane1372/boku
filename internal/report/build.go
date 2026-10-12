@@ -32,6 +32,9 @@ type BuildOptions struct {
 	// Layout is auto, full, compact or paper; auto follows the document's
 	// request (full or compact). Paper is chosen by configuration only.
 	Layout string
+	// Theme is auto or one of Themes; auto follows the document's choice and
+	// otherwise picks one from the report type.
+	Theme string
 	// IncludeReferences adds the source list and evidence register to the
 	// rendered document. They are in Report.Sources/Evidence either way.
 	IncludeReferences bool
@@ -82,6 +85,7 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 	r.IncludeReferences = opt.IncludeReferences
 	r.Layout = resolveLayout(opt.Layout, doc.Layout)
 	b.layout = r.Layout
+	r.Theme = resolveTheme(opt.Theme, doc.Theme, r.Metadata.ReportType)
 	r.Labels = Labels{
 		Summary:     label(doc.SummaryTitle, "Executive summary"),
 		KeyFindings: label(doc.KeyFindingsTitle, "Key findings"),
@@ -106,6 +110,7 @@ func Build(doc Document, store *research.Store, meta Metadata, opt BuildOptions)
 	if opt.Method != nil {
 		r.Unverified = opt.Method.Unverified
 	}
+	r.Metrics = b.metrics(doc.Metrics, "headline metrics", 4)
 	for _, k := range doc.KeyFindings {
 		if strings.TrimSpace(k.Headline) == "" {
 			continue
@@ -185,6 +190,30 @@ func resolveLayout(configured, requested string) string {
 	return LayoutFull
 }
 
+// resolveTheme picks the visual template: the configured one, else the
+// editor's choice, else one that suits the kind of report.
+func resolveTheme(configured, requested, reportType string) string {
+	if IsTheme(configured) {
+		return configured
+	}
+	if IsTheme(requested) {
+		return requested
+	}
+	t := strings.ToLower(reportType)
+	for _, m := range []struct{ theme, words string }{
+		{"meridian", "market financ company invest industry econom competitive"},
+		{"ember", "case stud strateg decision brief memo playbook"},
+		{"slate", "policy regulat legal compliance review"},
+	} {
+		for _, w := range strings.Fields(m.words) {
+			if strings.Contains(t, w) {
+				return m.theme
+			}
+		}
+	}
+	return Themes[0]
+}
+
 func label(s, def string) string {
 	s = strings.TrimSpace(s)
 	if s == "" || len([]rune(s)) > 60 {
@@ -246,6 +275,9 @@ func (b *builder) cite(ids []string, where string) []int {
 func (b *builder) section(s Section) Section {
 	out := Section{Title: strings.TrimSpace(s.Title)}
 	where := fmt.Sprintf("section %q", out.Title)
+	if t := strings.TrimSpace(s.Takeaway); t != "" && len([]rune(t)) <= 240 {
+		out.Takeaway = b.text(t, where)
+	}
 	for _, bl := range s.Blocks {
 		if nb, ok := b.block(bl, where); ok {
 			out.Blocks = append(out.Blocks, nb)
@@ -275,6 +307,10 @@ func (b *builder) block(bl Block, where string) (Block, bool) {
 		}
 		bl.Items = items
 		return bl, len(items) > 0
+	case BlockMetrics:
+		bl.Metrics = b.metrics(bl.Metrics, where, 4)
+		bl.Title = strings.TrimSpace(bl.Title)
+		return bl, len(bl.Metrics) > 0
 	case BlockTable:
 		return b.table(bl, where)
 	case BlockChart:
@@ -348,15 +384,26 @@ func (b *builder) chart(bl Block, where string) (Block, bool) {
 		b.warn("%s: %s cites no findings; dropped (chart data must be traceable)", where, name)
 		return bl, false
 	}
-	switch c.Kind {
-	case "bar", "column", "line":
-	default:
+	if !isChartKind(c.Kind) {
 		c.Kind = "column"
 	}
 	for _, s := range c.Series {
 		if len(s.Values) != len(c.Labels) {
 			b.warn("%s: %s series %q has %d values for %d labels; dropped", where, name, s.Name, len(s.Values), len(c.Labels))
 			return bl, false
+		}
+	}
+	// Shares and stacks only make sense for non-negative parts of a whole.
+	if c.Kind == "donut" || c.Kind == "stacked" {
+		if c.Kind == "donut" && len(c.Series) != 1 {
+			c.Kind = "column"
+		}
+		for _, s := range c.Series {
+			for _, v := range s.Values {
+				if v < 0 && c.Kind != "column" {
+					c.Kind = "column"
+				}
+			}
 		}
 	}
 	var evidence []string
@@ -385,6 +432,68 @@ func (b *builder) chart(bl Block, where string) (Block, bool) {
 	b.figures++
 	bl.Number = b.figures
 	return bl, true
+}
+
+func isChartKind(k string) bool {
+	for _, x := range ChartKinds {
+		if x == k {
+			return true
+		}
+	}
+	return false
+}
+
+// metrics validates headline numbers: each needs a value, a label and cited
+// findings in which every number of the value appears. At most max are kept.
+func (b *builder) metrics(in []Metric, where string, max int) []Metric {
+	var out []Metric
+	for _, m := range in {
+		m.Value, m.Label = strings.TrimSpace(m.Value), strings.TrimSpace(m.Label)
+		name := fmt.Sprintf("metric %q", m.Label)
+		switch {
+		case m.Value == "" || m.Label == "":
+			b.warn("%s: metric without a value or label dropped", where)
+			continue
+		case len([]rune(m.Value)) > 18:
+			b.warn("%s: %s value %q is too long for a tile; dropped", where, name, m.Value)
+			continue
+		case len(m.FindingIDs) == 0:
+			b.warn("%s: %s cites no findings; dropped (metrics must be traceable)", where, name)
+			continue
+		}
+		var evidence []string
+		for _, id := range m.FindingIDs {
+			if f := b.store.Finding(id); f != nil && f.Usable() {
+				evidence = append(evidence, f.Claim, f.Evidence)
+			}
+		}
+		nums, ok := numbersIn(strings.Join(evidence, " ")), true
+		for _, v := range numbersIn(m.Value) {
+			if !traceable(v, nums) {
+				b.warn("%s: %s value %q does not appear in cited findings %v; dropped", where, name, m.Value, m.FindingIDs)
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			continue
+		}
+		if len(b.cite(m.FindingIDs, where)) == 0 {
+			continue
+		}
+		switch m.Trend {
+		case "up", "down", "flat":
+		default:
+			m.Trend = ""
+		}
+		m.Detail = b.text(m.Detail, where)
+		if len(out) == max {
+			b.warn("%s: more than %d metrics; extra tiles dropped", where, max)
+			break
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 func (b *builder) diagram(bl Block, where string) (Block, bool) {

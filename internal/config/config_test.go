@@ -110,6 +110,21 @@ func TestApplyMode(t *testing.T) {
 	if short.UsesLocal() || !short.Research.FactCheck || short.Report.Layout != "full" || short.Agents.MaxAgents != 3 {
 		t.Errorf("short mode wrong or overrode explicit layout: %+v", short)
 	}
+	deck := Default()
+	deck.ApplyMode(ModeSlides)
+	if len(deck.Report.Formats) != 1 || deck.Report.Formats[0] != "pptx" || deck.Validate() != nil {
+		t.Errorf("slides mode should publish a deck: %+v", deck.Report)
+	}
+	both := Default()
+	both.Report.Formats = []string{"pdf", "pptx"}
+	both.ApplyMode(ModeSlides)
+	if len(both.Report.Formats) != 2 {
+		t.Errorf("slides mode dropped a configured format: %v", both.Report.Formats)
+	}
+	both.Report.Theme = "neon"
+	if both.Validate() == nil {
+		t.Error("unknown theme accepted")
+	}
 	ex := Default()
 	ex.ApplyMode(ModeExplainer)
 	if ex.Agents.MaxAgents != 4 || ex.Research.MaxIterations != 1 || !ex.Report.Diagrams || ex.MinSourcesFor() != 8 {

@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "properties": {
+    "understanding": {
+      "type": "string",
+      "description": "how you read the request and what is still open"
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "description": "what the answer changes"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "multi": {
+            "type": "boolean",
+            "description": "true when several options can apply"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "options"
+        ]
+      }
+    }
+  },
+  "required": [
+    "understanding",
+    "questions"
+  ]
+}

@@ -14,7 +14,8 @@ server, queue or database: the run directory is the state.
 | 4 | synthesis | plan, validated corpus | `synthesis/synthesis.json` | synthesizer |
 | 5 | editorial | plan, synthesis, corpus | `report/document.json`, `document-revN.json` | editorial ⟲ revision |
 | 6 | report | final draft, evidence | `report/report.json` | — (*editorial gate*) |
-| 7 | render | report model | `report/report.html`, `.md`, `output/*.pdf` | — (*PDF gate*) |
+| 0 | scope *(optional, `--refine`)* | topic, user's answers | `scope.json`, `scope.md` | scoper |
+| 7 | render | report model | `report/report.html`, `.md`, `output/*.pdf`, `output/*.pptx` | — (*PDF gate*) |
 
 A gate with errors stops the run with status `blocked` and exit code 3.
 Nothing is copied to the output directory unless every gate passed.
@@ -31,7 +32,9 @@ internal/run          run directory, manifest, atomic artifact I/O
 internal/research     evidence model: sources, findings, tiers, freshness, store
 internal/validation   fact-check application, quality gates
 internal/report       document model, citation resolution, chart/table/diagram validation
-internal/render       HTML + print CSS, SVG charts and diagrams, Markdown, PDF, PDF inspection
+internal/render       HTML + print CSS, themes, charts and diagrams (one canvas → SVG and
+                      PowerPoint shapes), Markdown, PDF, PPTX, PDF inspection
+internal/scope        expert interview before a run: questions, answers, refined brief
 internal/orchestrator the pipeline
 internal/logx         CLI logger
 internal/ui           web interface: HTTP API over runs and config, embedded web app
@@ -63,6 +66,16 @@ execute a run.
   and nothing is lost when the server restarts.
 
 `SECURITY.md` describes how the server is kept local.
+
+## Charts, diagrams and the deck
+
+Charts and diagrams draw onto a small `canvas` of rectangles, lines, circles,
+text and ring segments. The canvas is written twice: as inline SVG for the
+HTML/PDF report and as native DrawingML shapes for the PowerPoint deck, so a
+figure is the same in both. `render.PPTX` writes the `.pptx` package itself
+(`archive/zip` plus XML); the deck uses only preset shapes and straight
+segments, which every viewer draws the same way. A `render.Theme` supplies
+the colours for the stylesheet, the canvas and the deck.
 
 ## The agent boundary
 

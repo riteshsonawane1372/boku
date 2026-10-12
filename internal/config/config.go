@@ -48,7 +48,15 @@ const (
 	// captions, bracketed citations and a reference list. Deep research, and
 	// the reference list is always included.
 	ModeWhitepaper Mode = "whitepaper"
+	// ModeSlides produces a presentation: the editor writes tight sections
+	// with a one-sentence takeaway each, and the report is published as a
+	// PowerPoint deck (speaker notes carry the detail).
+	ModeSlides Mode = "slides"
 )
+
+// Themes are the visual templates of the report and the deck (see
+// report.Themes); "auto" lets the editor pick one for the subject.
+var Themes = []string{"auto", "aurora", "meridian", "ember", "slate"}
 
 // Providers are the agent runtimes Boku can drive.
 const (
@@ -160,7 +168,7 @@ type Research struct {
 }
 
 type Report struct {
-	// Mode is full (default), short, quick, explainer or whitepaper; see Mode.
+	// Mode is full (default), short, quick, explainer, whitepaper or slides; see Mode.
 	Mode Mode `yaml:"mode" json:"mode"`
 	// Layout is auto, full (cover + contents), compact (title block, no
 	// cover) or paper (academic paper; the whitepaper default). auto lets the
@@ -169,7 +177,10 @@ type Report struct {
 	// IncludeReferences puts the source list and evidence register in the
 	// PDF/HTML/Markdown. They are always written to <report>.references.json.
 	IncludeReferences bool `yaml:"include_references" json:"include_references"`
-	// Formats to produce: pdf, html, md.
+	// Theme is the visual template: auto (the editor picks one to suit the
+	// subject), aurora, meridian, ember or slate.
+	Theme string `yaml:"theme" json:"theme"`
+	// Formats to produce: pdf, html, md, pptx.
 	Formats   []string `yaml:"formats" json:"formats"`
 	Citations bool     `yaml:"citations" json:"citations"`
 	Charts    bool     `yaml:"charts" json:"charts"`
@@ -249,6 +260,7 @@ func Default() Config {
 		Report: Report{
 			Mode:      ModeFull,
 			Layout:    "auto",
+			Theme:     "auto",
 			Formats:   []string{"pdf"},
 			Citations: true,
 			Charts:    true,
@@ -296,9 +308,12 @@ func (c Config) Validate() error {
 		errs = append(errs, fmt.Errorf("agents.provider %q is not supported (supported: claude-code, ollama, openai)", c.Agents.Provider))
 	}
 	switch c.Report.Mode {
-	case ModeFull, ModeShort, ModeQuick, ModeExplainer, ModeWhitepaper:
+	case ModeFull, ModeShort, ModeQuick, ModeExplainer, ModeWhitepaper, ModeSlides:
 	default:
-		errs = append(errs, fmt.Errorf("report.mode %q must be full, short, quick, explainer or whitepaper", c.Report.Mode))
+		errs = append(errs, fmt.Errorf("report.mode %q must be full, short, quick, explainer, whitepaper or slides", c.Report.Mode))
+	}
+	if !contains(Themes, c.Report.Theme) {
+		errs = append(errs, fmt.Errorf("report.theme %q must be one of %s", c.Report.Theme, strings.Join(Themes, ", ")))
 	}
 	if c.Research.Codebase != "" {
 		// Only Claude Code has file tools; other providers would have to guess.
@@ -360,9 +375,9 @@ func (c Config) Validate() error {
 	}
 	for _, f := range c.Report.Formats {
 		switch f {
-		case "pdf", "html", "md":
+		case "pdf", "html", "md", "pptx":
 		default:
-			errs = append(errs, fmt.Errorf("report.formats: unknown format %q (pdf, html, md)", f))
+			errs = append(errs, fmt.Errorf("report.formats: unknown format %q (pdf, html, md, pptx)", f))
 		}
 	}
 	switch strings.ToLower(c.Report.PageSize) {
@@ -410,6 +425,12 @@ func (c *Config) ApplyMode(m Mode) {
 		if c.Report.Layout == "auto" {
 			c.Report.Layout = "paper"
 		}
+	case ModeSlides:
+		// A deck is the deliverable; --format still adds or replaces formats.
+		if !contains(c.Report.Formats, "pptx") {
+			c.Report.Formats = []string{"pptx"}
+		}
+		c.Report.Charts, c.Report.Diagrams = true, true
 	case ModeExplainer:
 		c.Agents.MaxAgents = min(c.Agents.MaxAgents, 4)
 		c.Research.MaxIterations = min(c.Research.MaxIterations, 1)
@@ -425,6 +446,15 @@ func (c *Config) ApplyMode(m Mode) {
 			c.Report.Layout = "compact"
 		}
 	}
+}
+
+func contains(xs []string, x string) bool {
+	for _, y := range xs {
+		if y == x {
+			return true
+		}
+	}
+	return false
 }
 
 // IsLocalRole reports whether role runs on the local model.

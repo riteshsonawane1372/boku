@@ -3,13 +3,13 @@
 // the same layout can override them at runtime (output.prompts_directory).
 //
 // A role's system prompt is common.md, then researcher.md for research roles,
-// then <role>.md, then <mode>.md for the explainer and whitepaper modes. Prompts are Go
+// then <role>.md, then <mode>.md for the explainer, whitepaper and slides modes. Prompts are Go
 // text/templates with these fields:
 //
 //	{{.Today}}          current date, YYYY-MM-DD
 //	{{.FreshnessDays}}  freshness window in days
 //	{{.Depth}}          quick | standard | deep
-//	{{.Mode}}           full | short | quick | explainer | whitepaper
+//	{{.Mode}}           full | short | quick | explainer | whitepaper | slides
 //	{{.Role}}           the agent's role
 //	{{.Codebase}}       true when the subject is a local repository
 package prompts
@@ -99,7 +99,7 @@ func (l *Library) System(role string, v Vars) (string, error) {
 }
 
 // Schema returns a compacted JSON Schema by name (planner, research, factcheck,
-// synthesis, document, formatter).
+// synthesis, document, formatter, scope-questions, scope-brief).
 func (l *Library) Schema(name string) (json.RawMessage, error) {
 	b, err := fs.ReadFile(l.fsys, "schemas/"+name+".json")
 	if err != nil {
@@ -116,7 +116,7 @@ func (l *Library) Schema(name string) (json.RawMessage, error) {
 // prompt, recorded in the run manifest for reproducibility.
 func (l *Library) Version(role string) string {
 	h := sha256.New()
-	for _, name := range append(l.files(role), "explainer.md", "whitepaper.md") {
+	for _, name := range append(l.files(role), "explainer.md", "whitepaper.md", "slides.md") {
 		b, _ := fs.ReadFile(l.fsys, name)
 		h.Write(b)
 	}
@@ -125,7 +125,7 @@ func (l *Library) Version(role string) string {
 
 // modeAddOns are the modes with a prompt file of their own, appended to
 // every role's system prompt.
-var modeAddOns = map[string]bool{"explainer": true, "whitepaper": true}
+var modeAddOns = map[string]bool{"explainer": true, "whitepaper": true, "slides": true}
 
 // files lists the prompt files for a role, in order, excluding mode add-ons.
 func (l *Library) files(role string) []string {

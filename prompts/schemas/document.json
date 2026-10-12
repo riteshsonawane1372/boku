@@ -56,7 +56,8 @@
                     "callout",
                     "table",
                     "chart",
-                    "diagram"
+                    "diagram",
+                    "metrics"
                   ]
                 },
                 "text": {
@@ -112,8 +113,11 @@
                       "type": "string",
                       "enum": [
                         "column",
+                        "stacked",
                         "bar",
-                        "line"
+                        "line",
+                        "area",
+                        "donut"
                       ]
                     },
                     "title": {
@@ -227,12 +231,56 @@
                     "nodes",
                     "edges"
                   ]
+                },
+                "metrics": {
+                  "type": "array",
+                  "description": "metrics blocks only: 2-4 tiles",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "description": "the number with its unit, at most 18 characters: 'USD 4.2bn', '62%', '3.4x'"
+                      },
+                      "label": {
+                        "type": "string",
+                        "description": "what the number measures, a few words"
+                      },
+                      "detail": {
+                        "type": "string",
+                        "description": "period, comparison or caveat, with a citation"
+                      },
+                      "trend": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down",
+                          "flat"
+                        ]
+                      },
+                      "finding_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "label",
+                      "finding_ids"
+                    ]
+                  }
                 }
               },
               "required": [
                 "type"
               ]
             }
+          },
+          "takeaway": {
+            "type": "string",
+            "description": "the section's point in one sentence; shown under the heading and as the slide headline"
           }
         },
         "required": [
@@ -271,6 +319,56 @@
       "items": {
         "type": "string"
       }
+    },
+    "metrics": {
+      "type": "array",
+      "description": "0-4 headline numbers for the whole report",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "the number with its unit, at most 18 characters: 'USD 4.2bn', '62%', '3.4x'"
+          },
+          "label": {
+            "type": "string",
+            "description": "what the number measures, a few words"
+          },
+          "detail": {
+            "type": "string",
+            "description": "period, comparison or caveat, with a citation"
+          },
+          "trend": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ]
+          },
+          "finding_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "finding_ids"
+        ]
+      }
+    },
+    "theme": {
+      "type": "string",
+      "enum": [
+        "aurora",
+        "meridian",
+        "ember",
+        "slate"
+      ],
+      "description": "visual template that suits the subject"
     }
   },
   "required": [

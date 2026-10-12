@@ -1,8 +1,12 @@
 package render
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -196,18 +200,18 @@ func TestHTMLEscapesAgentContent(t *testing.T) {
 
 func TestChartsAreDeterministic(t *testing.T) {
 	c := &report.Chart{Kind: "column", Title: "t", Units: "u", Labels: []string{"a", "b"}, Series: []report.Series{{Name: "s", Values: []float64{1, -2.5}}}}
-	a, b := ChartSVG(c), ChartSVG(c)
+	a, b := ChartSVG(c, ThemeFor("")), ChartSVG(c, ThemeFor(""))
 	if a != b || !strings.HasPrefix(a, "<svg") {
 		t.Fatal("chart output not deterministic")
 	}
-	for _, kind := range []string{"bar", "line"} {
+	for _, kind := range []string{"bar", "line", "area", "stacked", "donut"} {
 		c.Kind = kind
-		if s := ChartSVG(c); !strings.Contains(s, "</svg>") {
+		if s := ChartSVG(c, ThemeFor("")); !strings.Contains(s, "</svg>") {
 			t.Errorf("%s chart incomplete", kind)
 		}
 	}
 	flat := &report.Chart{Kind: "line", Labels: []string{"a", "b"}, Series: []report.Series{{Values: []float64{5, 5}}}}
-	if s := ChartSVG(flat); strings.Contains(s, "NaN") || strings.Contains(s, "Inf") {
+	if s := ChartSVG(flat, ThemeFor("")); strings.Contains(s, "NaN") || strings.Contains(s, "Inf") {
 		t.Error("flat series produced NaN coordinates")
 	}
 }
@@ -215,7 +219,7 @@ func TestChartsAreDeterministic(t *testing.T) {
 func TestDiagramHandlesCycles(t *testing.T) {
 	d := &report.Diagram{Kind: "architecture", Nodes: []report.Node{{ID: "a", Label: "A"}, {ID: "b", Label: "B"}, {ID: "c", Label: "C"}},
 		Edges: []report.Edge{{From: "a", To: "b"}, {From: "b", To: "c"}, {From: "c", To: "a"}}}
-	s := DiagramSVG(d)
+	s := DiagramSVG(d, ThemeFor(""))
 	if strings.Contains(s, "NaN") || strings.Count(s, "<rect") < 3 {
 		t.Errorf("bad diagram: %s", s)
 	}
@@ -267,5 +271,140 @@ func TestPDF(t *testing.T) {
 	}
 	if info.Pages < 3 || len(info.EmptyPages) > 0 {
 		t.Errorf("paper: %d pages, empty pages %v", info.Pages, info.EmptyPages)
+	}
+}
+
+func TestPPTX(t *testing.T) {
+	r := sampleReport(t)
+	a, err := PPTX(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := PPTX(r); !bytes.Equal(a, b) {
+		t.Error("deck output is not deterministic")
+	}
+	zr, err := zip.NewReader(bytes.NewReader(a), int64(len(a)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := map[string]string{}
+	for _, f := range zr.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(rc)
+		rc.Close()
+		parts[f.Name] = string(b)
+		// Every part must be well-formed XML, or PowerPoint offers to "repair" the file.
+		dec := xml.NewDecoder(bytes.NewReader(b))
+		for {
+			if _, err := dec.Token(); err == io.EOF {
+				break
+			} else if err != nil {
+				t.Fatalf("%s: %v", f.Name, err)
+			}
+		}
+	}
+	slides, notes := 0, 0
+	var all strings.Builder
+	for name, body := range parts {
+		switch {
+		case strings.HasPrefix(name, "ppt/slides/slide"):
+			slides++
+			all.WriteString(body)
+			if !strings.Contains(parts["[Content_Types].xml"], "/"+name) {
+				t.Errorf("%s has no content type", name)
+			}
+		case strings.HasPrefix(name, "ppt/notesSlides/notesSlide"):
+			notes++
+			all.WriteString(body)
+		}
+	}
+	if slides < 10 || slides != notes || strings.Count(parts["ppt/presentation.xml"], "<p:sldId ") != slides {
+		t.Errorf("slides = %d, notes = %d", slides, notes)
+	}
+	text := all.String()
+	for _, want := range []string{
+		"Platform Modernisation at Northwind Logistics", "What the evidence shows", "Unit cost fell by a quarter",
+		"<a:tbl>", "Infrastructure cost per shipment", "Dispatch platform spend by category", "USD 0.31", "Method and evidence",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("deck missing %q", want)
+		}
+	}
+	if strings.Contains(text, "") || strings.Contains(text, "[F0") {
+		t.Error("deck contains unresolved citation markers")
+	}
+	if out := os.Getenv("BOKU_RENDER_OUT"); out != "" {
+		_ = os.WriteFile(filepath.Join(out, "sample.pptx"), a, 0o644)
+	}
+}
+
+func TestLede(t *testing.T) {
+	cite := "1,2"
+	for in, want := range map[string]string{
+		"Revenue grew 34% in 2025 to USD 4.2 billion, the fastest rate since the company listed" + cite + ". The rest is detail.": "Revenue grew 34% in 2025 to USD 4.2 billion, the fastest rate since the company listed" + cite + ".",
+		"It is not enough. Adoption of the new platform reached 85% of services by December 2025" + cite + ". More.":              "It is not enough. Adoption of the new platform reached 85% of services by December 2025" + cite + ".",
+		"One sentence only": "One sentence only",
+	} {
+		if got := lede(in, 300); got != want {
+			t.Errorf("lede(%q) = %q, want %q", in, got, want)
+		}
+	}
+	long := lede(strings.Repeat("word ", 80)+cite+". Next sentence here.", 60)
+	if n := len([]rune(report.PlainText(long))); n > 62 || !report.HasCitation(long) || !strings.Contains(long, "…") {
+		t.Errorf("long lede not cut with its citation kept: %q", long)
+	}
+}
+
+func TestThemesStyleReportAndCharts(t *testing.T) {
+	r := sampleReport(t)
+	c := &report.Chart{Kind: "donut", Labels: []string{"a", "b"}, Series: []report.Series{{Values: []float64{3, 1}}}}
+	seen := map[string]bool{}
+	for _, name := range report.Themes {
+		r.Theme = name
+		out, err := HTML(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		th := ThemeFor(name)
+		if !strings.Contains(string(out), `data-theme="`+name+`"`) || !strings.Contains(string(out), "--accent: "+th.Accent) {
+			t.Errorf("%s: theme not applied to HTML", name)
+		}
+		svg := ChartSVG(c, th)
+		if !strings.Contains(svg, th.Palette[0]) || strings.Contains(svg, "NaN") {
+			t.Errorf("%s: chart does not use the theme palette", name)
+		}
+		seen[th.Accent] = true
+	}
+	if len(seen) != len(report.Themes) {
+		t.Error("themes share an accent colour")
+	}
+	if !strings.Contains(string(mustHTML(t, r)), `class="metrics n4"`) || !strings.Contains(string(mustHTML(t, r)), `class="takeaway"`) {
+		t.Error("metrics tiles or section takeaway not rendered")
+	}
+}
+
+func mustHTML(t *testing.T, r *report.Report) []byte {
+	t.Helper()
+	out, err := HTML(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestBreakLong(t *testing.T) {
+	const z = "\u200b"
+	for in, want := range map[string]string{
+		"Short words stay as they are":        "Short words stay as they are",
+		"v1.36 and KEP-4381":                  "v1.36 and KEP-4381",
+		"internationalisations":               "internationalisati" + z + "ons",
+		"see https://example.com/a/long/path": "see https:" + z + "//example." + z + "com/" + z + "a/long/" + z + "path",
+	} {
+		if got := breakLong(in); got != want {
+			t.Errorf("breakLong(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

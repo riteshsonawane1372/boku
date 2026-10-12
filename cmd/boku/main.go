@@ -3,6 +3,7 @@
 //	boku report "How Kubernetes is being used for AI infrastructure"
 //	boku explain ./path/to/repo "how a request is handled"
 //	boku whitepaper "Sparse attention for long-context transformers"
+//	boku slides "State of EV charging in Europe" --refine
 //	boku resume runs/2026-09-23T074500-kubernetes-ai-infrastructure
 //	boku status runs/2026-09-23T074500-kubernetes-ai-infrastructure
 //	boku ui
@@ -31,6 +32,7 @@ import (
 	"github.com/riteshsonawane1372/boku/internal/orchestrator"
 	"github.com/riteshsonawane1372/boku/internal/render"
 	"github.com/riteshsonawane1372/boku/internal/run"
+	"github.com/riteshsonawane1372/boku/internal/scope"
 	"github.com/riteshsonawane1372/boku/internal/ui"
 	"github.com/riteshsonawane1372/boku/prompts"
 )
@@ -45,12 +47,18 @@ Usage:
                                     --short     short search report (a few pages)
                                     --quick     local Ollama model only, no Claude tokens
                                     --save-ref  include the source list in the PDF
+                                    --refine    an expert asks a few questions first and
+                                                rewrites the topic for you to confirm
+                                    --format    pdf,html,md,pptx (PowerPoint deck)
+                                    --theme     aurora | meridian | ember | slate
   boku research <topic> [flags]   alias for report
   boku explain <topic|path> [focus] [flags]
                                   visual explainer of a topic, or of a local
                                   codebase when given a directory
   boku whitepaper <topic> [flags] detailed paper in academic/industry format:
                                   abstract, numbered sections, references
+  boku slides <topic> [flags]     presentation: a PowerPoint deck with charts,
+                                  one point per slide, detail in speaker notes
   boku resume <run-dir> [flags]   continue an interrupted or blocked run
   boku render <run-dir> [flags]   rebuild outputs from a run's artifacts (no agents)
   boku status <run-dir>           show a run's stages, tasks and cost
@@ -80,6 +88,8 @@ func main() {
 		err = cmdReport(ctx, "explain", args)
 	case "whitepaper":
 		err = cmdReport(ctx, "whitepaper", args)
+	case "slides", "deck":
+		err = cmdReport(ctx, "slides", args)
 	case "resume":
 		err = cmdResume(ctx, args)
 	case "render":
@@ -137,6 +147,9 @@ type options struct {
 	quick      bool
 	explainer  bool
 	whitepaper bool
+	slides     bool
+	refine     bool
+	theme      string
 	saveRef    bool
 	localModel string
 }
@@ -144,7 +157,8 @@ type options struct {
 func (o *options) register(fs *flag.FlagSet, full bool) {
 	fs.StringVar(&o.configPath, "config", "", "path to boku.yaml (default: ./boku.yaml if present)")
 	fs.StringVar(&o.output, "output", "", "directory for published reports")
-	fs.StringVar(&o.format, "format", "", "output formats, comma-separated: pdf,html,md")
+	fs.StringVar(&o.format, "format", "", "output formats, comma-separated: pdf,html,md,pptx")
+	fs.StringVar(&o.theme, "theme", "", "visual template: auto (the editor picks), aurora, meridian, ember or slate")
 	fs.BoolVar(&o.verbose, "verbose", false, "show debug logging")
 	fs.Float64Var(&o.maxCost, "max-cost", -1, "stop launching agents once spend reaches this many USD (0 = unlimited)")
 	fs.IntVar(&o.parallel, "parallel", 0, "maximum concurrently running agents")
@@ -152,7 +166,9 @@ func (o *options) register(fs *flag.FlagSet, full bool) {
 	if !full {
 		return
 	}
-	fs.StringVar(&o.mode, "mode", "", "report mode: full (default), short, quick, explainer or whitepaper")
+	fs.StringVar(&o.mode, "mode", "", "report mode: full (default), short, quick, explainer, whitepaper or slides")
+	fs.BoolVar(&o.slides, "slides", false, "presentation: publish a PowerPoint deck written for slides (same as --mode slides or `boku slides`)")
+	fs.BoolVar(&o.refine, "refine", false, "before the run, an expert asks a few topic-specific questions and rewrites the topic for you to confirm (interactive)")
 	fs.BoolVar(&o.whitepaper, "whitepaper", false, "detailed whitepaper in academic/industry paper format: abstract, numbered sections, figures, references; deep research (same as --mode whitepaper or `boku whitepaper`)")
 	fs.BoolVar(&o.explainer, "explainer", false, "visual explainer of a topic or, given a directory, a codebase (same as --mode explainer or `boku explain`)")
 	fs.BoolVar(&o.short, "short", false, "short search report: 3 workstreams, one fact-check round, compact layout (same as --mode short)")
@@ -171,8 +187,8 @@ func (o *options) register(fs *flag.FlagSet, full bool) {
 func (o *options) apply(cfg *config.Config) error {
 	mode := config.Mode(o.mode)
 	switch {
-	case btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper) > 1:
-		return errors.New("--quick, --short, --explainer and --whitepaper are mutually exclusive")
+	case btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper)+btoi(o.slides) > 1:
+		return errors.New("--quick, --short, --explainer, --whitepaper and --slides are mutually exclusive")
 	case o.quick:
 		mode = config.ModeQuick
 	case o.short:
@@ -181,12 +197,17 @@ func (o *options) apply(cfg *config.Config) error {
 		mode = config.ModeExplainer
 	case o.whitepaper:
 		mode = config.ModeWhitepaper
+	case o.slides:
+		mode = config.ModeSlides
 	}
 	if mode != "" {
 		cfg.ApplyMode(mode) // before the other flags, so explicit flags still win
 	}
 	if o.saveRef {
 		cfg.Report.IncludeReferences = true
+	}
+	if o.theme != "" {
+		cfg.Report.Theme = o.theme
 	}
 	if o.localModel != "" {
 		cfg.Local.Model = o.localModel
@@ -267,7 +288,8 @@ func btoi(b bool) int {
 	return 0
 }
 
-// cmdReport runs `boku report`, `boku explain` and `boku whitepaper`. An explainer whose first
+// cmdReport runs `boku report`, `boku explain`, `boku whitepaper` and
+// `boku slides`. An explainer whose first
 // argument is a directory explains that codebase; the remaining arguments
 // say what to focus on.
 func cmdReport(ctx context.Context, name string, args []string) error {
@@ -280,6 +302,8 @@ func cmdReport(ctx context.Context, name string, args []string) error {
 			fmt.Fprintln(fs.Output(), "Usage: boku explain <topic> [flags]\n       boku explain <directory> [focus] [flags]")
 		case "whitepaper":
 			fmt.Fprintln(fs.Output(), "Usage: boku whitepaper <topic> [flags]")
+		case "slides":
+			fmt.Fprintln(fs.Output(), "Usage: boku slides <topic> [flags]")
 		default:
 			fmt.Fprintln(fs.Output(), "Usage: boku report <topic> [flags]")
 		}
@@ -289,9 +313,9 @@ func cmdReport(ctx context.Context, name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	if forced := map[string]config.Mode{"explain": config.ModeExplainer, "whitepaper": config.ModeWhitepaper}[name]; forced != "" {
-		if o.mode != "" && o.mode != string(forced) || btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper) > 0 {
-			return fmt.Errorf("boku %s always uses %s mode; drop --mode, --short, --quick, --explainer and --whitepaper", name, forced)
+	if forced := map[string]config.Mode{"explain": config.ModeExplainer, "whitepaper": config.ModeWhitepaper, "slides": config.ModeSlides}[name]; forced != "" {
+		if o.mode != "" && o.mode != string(forced) || btoi(o.quick)+btoi(o.short)+btoi(o.explainer)+btoi(o.whitepaper)+btoi(o.slides) > 0 {
+			return fmt.Errorf("boku %s always uses %s mode; drop --mode, --short, --quick, --explainer, --whitepaper and --slides", name, forced)
 		}
 		o.mode = string(forced)
 	}
@@ -318,9 +342,24 @@ func cmdReport(ctx context.Context, name string, args []string) error {
 	if err := o.apply(&cfg); err != nil {
 		return err
 	}
+	var interview *scope.Record
+	if o.refine {
+		if codebase != "" {
+			return errors.New("--refine scopes a topic; a codebase explainer takes its focus as an argument instead")
+		}
+		if interview, err = refineTopic(ctx, cfg, topic, logx.New(os.Stderr, o.verbose)); err != nil {
+			return err
+		}
+		topic = interview.Topic
+	}
 	r, err := run.Create(cfg.Output.RunsDir, topic, cfg, time.Now())
 	if err != nil {
 		return err
+	}
+	if interview != nil {
+		if err := saveInterview(r, *interview); err != nil {
+			return err
+		}
 	}
 	return execute(ctx, cfg, r, o.verbose, false)
 }
@@ -641,7 +680,11 @@ func cmdUI(ctx context.Context, args []string) error {
 		ConfigPath: *configPath,
 		Load:       func() (config.Config, error) { return loadConfig(*configPath) },
 		Execute:    executeWith,
-		Doctor:     doctorChecks,
+		Expert: func(ctx context.Context, cfg config.Config) (*scope.Expert, error) {
+			return newExpert(ctx, cfg, logx.Discard())
+		},
+		SaveScope: saveInterview,
+		Doctor:    doctorChecks,
 	}
 	if ip := net.ParseIP(*host); *host != "localhost" && (ip == nil || !ip.IsLoopback()) {
 		token, err := ui.NewToken()
@@ -733,10 +776,11 @@ research:
   fact_check: true
 
 report:
-  mode: full                 # full | short | quick | explainer | whitepaper
+  mode: full                 # full | short | quick | explainer | whitepaper | slides
   layout: auto               # auto | full | compact | paper (auto: the editor decides; paper for whitepapers)
   include_references: false  # true = source list in the PDF (--save-ref); always in <report>.references.json
-  formats: [pdf]             # pdf, html, md
+  theme: auto                # auto (the editor picks) | aurora | meridian | ember | slate
+  formats: [pdf]             # pdf, html, md, pptx (PowerPoint deck)
   citations: true
   charts: true
   diagrams: true

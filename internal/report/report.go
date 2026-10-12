@@ -29,6 +29,12 @@ type Document struct {
 	KeyFindingsTitle string `json:"key_findings_title,omitempty"`
 	ConclusionTitle  string `json:"conclusion_title,omitempty"`
 	Layout           string `json:"layout,omitempty"` // full | compact
+	// Theme is the visual template the editor picks for the subject (see
+	// Themes); configuration may override it.
+	Theme string `json:"theme,omitempty"`
+	// Metrics are the report's headline numbers, shown as tiles under the
+	// executive summary and on the deck's "at a glance" slide.
+	Metrics []Metric `json:"metrics,omitempty"`
 	// Keywords are index terms shown under a paper's abstract.
 	Keywords []string `json:"keywords,omitempty"`
 }
@@ -39,9 +45,24 @@ type KeyFinding struct {
 }
 
 type Section struct {
-	Number int     `json:"number,omitempty"`
-	Title  string  `json:"title"`
-	Blocks []Block `json:"blocks"`
+	Number int    `json:"number,omitempty"`
+	Title  string `json:"title"`
+	// Takeaway is the section's point in one sentence: the standfirst under
+	// the heading and the headline of the section's slide.
+	Takeaway string  `json:"takeaway,omitempty"`
+	Blocks   []Block `json:"blocks"`
+}
+
+// Metric is one headline number: a value with its unit, what it measures and
+// optional context. Build drops metrics whose numbers cannot be traced to the
+// cited findings.
+type Metric struct {
+	Value  string `json:"value"`  // "USD 4.2bn", "62%", "3.4×"
+	Label  string `json:"label"`  // what the number measures
+	Detail string `json:"detail"` // period, comparison or caveat
+	// Trend colours the tile: up, down or flat; empty for no direction.
+	Trend      string   `json:"trend,omitempty"`
+	FindingIDs []string `json:"finding_ids,omitempty"`
 }
 
 // Block types.
@@ -53,6 +74,7 @@ const (
 	BlockChart      = "chart"
 	BlockDiagram    = "diagram"
 	BlockCallout    = "callout"
+	BlockMetrics    = "metrics"
 )
 
 // Block is one element of a section. Only the fields relevant to Type are set.
@@ -69,6 +91,7 @@ type Block struct {
 	AsOf       string   `json:"as_of,omitempty"`
 	Chart      *Chart   `json:"chart,omitempty"`
 	Diagram    *Diagram `json:"diagram,omitempty"`
+	Metrics    []Metric `json:"metrics,omitempty"`
 
 	// Filled by Build.
 	Number     int   `json:"number,omitempty"`      // figure / table number
@@ -78,13 +101,23 @@ type Block struct {
 // Chart is data for a deterministic chart. Every value must come from the
 // referenced findings; Build drops charts whose numbers cannot be traced.
 type Chart struct {
-	Kind   string   `json:"kind"` // bar (horizontal), column, line
+	Kind   string   `json:"kind"` // see ChartKinds
 	Title  string   `json:"title"`
 	Units  string   `json:"units"`
 	Labels []string `json:"labels"`
 	Series []Series `json:"series"`
 	Note   string   `json:"note,omitempty"`
 }
+
+// ChartKinds are the chart forms the renderers draw.
+//
+//	column   vertical bars, series side by side
+//	stacked  vertical bars, series stacked into a total
+//	bar      horizontal bars, for rankings and long labels
+//	line     series over ordered periods
+//	area     line with the area under it filled
+//	donut    shares of a whole (one series)
+var ChartKinds = []string{"column", "stacked", "bar", "line", "area", "donut"}
 
 type Series struct {
 	Name   string    `json:"name"`
@@ -131,6 +164,10 @@ type Report struct {
 	// Layout is full (cover and contents), compact (title block, no cover)
 	// or paper (academic paper: title block, abstract, numbered sections).
 	Layout string `json:"layout"`
+	// Theme is the resolved visual template (see Themes).
+	Theme string `json:"theme"`
+	// Metrics are the headline numbers that survived validation.
+	Metrics []Metric `json:"metrics,omitempty"`
 	// Keywords are index terms shown under a paper's abstract.
 	Keywords []string `json:"keywords,omitempty"`
 	// IncludeReferences puts the numbered source list into the document.
@@ -148,6 +185,25 @@ const (
 	LayoutCompact = "compact"
 	LayoutPaper   = "paper"
 )
+
+// Themes are the visual templates shared by the PDF/HTML report and the
+// slide deck. Each has its own palette and cover design.
+//
+//	aurora    indigo and violet gradient mesh; the default
+//	meridian  navy and teal with a full-bleed dark cover
+//	ember     warm orange band cover
+//	slate     monochrome, typographic
+var Themes = []string{"aurora", "meridian", "ember", "slate"}
+
+// IsTheme reports whether name is a known theme.
+func IsTheme(name string) bool {
+	for _, t := range Themes {
+		if t == name {
+			return true
+		}
+	}
+	return false
+}
 
 // Labels are headings for the parts every report has.
 type Labels struct {

@@ -8,6 +8,33 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- PowerPoint export: `--format pptx` publishes a 16:9 deck from any report,
+  and `boku slides <topic>` (`--slides`, `--mode slides`) has the report
+  written for slides. Charts and diagrams are native shapes, tables are real
+  tables, speaker notes carry the full cited text. Written directly as Office
+  Open XML: no template, office suite or Chrome needed.
+- Expert scoping: `--refine` (and **Refine with an expert** in `boku ui`)
+  has a new `scoper` role ask three to five topic-specific questions, then
+  rewrite the request into a brief the user confirms, edits or rejects before
+  anything is researched. Saved in the run as `scope.json` / `scope.md` and
+  passed to the planner.
+- Themes: `report.theme` / `--theme` (`auto`, `aurora`, `meridian`, `ember`,
+  `slate`) set the cover design, colours and chart palette of the report and
+  the deck; `auto` lets the editor choose.
+- Dynamic structure: headline metric tiles (`metrics`, traced to evidence
+  like charts), a one-sentence `takeaway` per section, and three more chart
+  forms (`stacked`, `area`, `donut`).
+- Examples: a second research report, decks for both example runs and a
+  paper-layout PDF in `docs/examples`, shown in an Examples section on the
+  site and in the docs.
+- The website is now a Hugo site (`hugo.toml`, sources in `site/`): the
+  sitemap (with git `lastmod`), `robots.txt`, canonical URLs, social tags and
+  JSON-LD are generated at build time, and the Pages workflow rebuilds on
+  every push to `main`. `hugo server` (or `make serve`) previews it.
+- Site performance and SEO: page images are served as responsive WebP from
+  Hugo's image pipeline, fonts are self-hosted (no third-party requests),
+  CSS and JS are minified and fingerprinted, the hero image and font are
+  preloaded, and titles and descriptions fit search-result lengths.
 - Web interface: `boku ui` serves a local app (default
   `http://127.0.0.1:7878`) to start runs with every setting, watch stages,
   cost and the log live, cancel, resume and re-render, browse a run's plan,
@@ -30,8 +57,20 @@ All notable changes to this project are documented here. The format follows
 
 - The report template rendered the executive summary and key findings twice,
   with stray contents entries between them.
+- Paper layout: a long whitepaper could be blocked by the PDF gate for
+  "empty pages", because the check assumed a running header the paper layout
+  does not have.
+- The evidence register's columns no longer squeeze words apart; long URLs
+  and identifiers in table cells get soft break points instead.
 
 ### Changed
+
+- Report design: Inter (embedded, OFL) replaces the serif body face; new
+  covers, chapter openers, figure cards, table and callout styling. Charts
+  and diagrams are redrawn with rounded marks, lighter grids and the theme
+  palette. The paper layout is unchanged.
+- Wide tables can no longer make Chrome shrink the whole PDF to fit.
+- The website is redesigned: light only, gradient mesh, scroll parallax.
 
 - A failed fact check no longer blocks publication. Unresolved critical
   issues and a `fail` verdict are shown in a red "Not verified" notice after

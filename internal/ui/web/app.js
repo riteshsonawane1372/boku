@@ -44,6 +44,7 @@ const ICONS = {
   refresh: '<path d="M20 11a8 8 0 1 0 -2.3 6.3M20 5v6h-6"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
   open: '<path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
   down: '<path d="M12 4v12M6 11l6 6 6-6M5 20h14"/>',
 };
@@ -197,6 +198,7 @@ const MODES = [
   { id: "quick", name: "Quick (local)", desc: "Everything on the local Ollama model. No Claude Code tokens, no fact-check." },
   { id: "explainer", name: "Explainer", desc: "Visual explainer of a topic or a local codebase: concepts, diagrams, walkthroughs." },
   { id: "whitepaper", name: "Whitepaper", desc: "Academic paper format: abstract, numbered sections, figures, reference list." },
+  { id: "slides", name: "Slides", desc: "A PowerPoint deck: one point per slide, charts as native shapes, detail in speaker notes." },
 ];
 const STAGE_LABEL = { plan: "Plan", research: "Research", factcheck: "Fact-check", synthesis: "Synthesis", editorial: "Write & edit", report: "Quality gates", render: "Render & publish" };
 const STAGE_COLOR = { plan: "var(--violet)", research: "var(--accent)", factcheck: "var(--amber)", synthesis: "var(--green)", editorial: "var(--pink)", report: "var(--faint)", render: "var(--faint)" };
@@ -227,6 +229,7 @@ const FLAGS = {
   "research.max_iterations": (v) => ["--iterations", v],
   "research.min_sources": (v) => (v > 0 ? ["--min-sources", v] : null),
   "report.formats": (v) => (v.length ? ["--format", v.join(",")] : null),
+  "report.theme": (v) => ["--theme", v],
   "report.include_references": (v) => (v ? ["--save-ref"] : null),
   "local.model": (v) => (v ? ["--local-model", v] : null),
   "output.directory": (v) => (v ? ["--output", v] : null),
@@ -234,7 +237,7 @@ const FLAGS = {
 const FLAG_NAME = {
   "research.depth": "--depth", "agents.max_agents": "--agents", "agents.max_parallel": "--parallel", "agents.max_cost_usd": "--max-cost",
   "research.freshness_days": "--freshness", "research.sources": "--sources", "agents.model": "--model", "research.max_iterations": "--iterations",
-  "research.min_sources": "--min-sources", "report.formats": "--format", "report.include_references": "--save-ref", "local.model": "--local-model",
+  "research.min_sources": "--min-sources", "report.formats": "--format", "report.theme": "--theme", "report.include_references": "--save-ref", "local.model": "--local-model",
   "output.directory": "--output",
 };
 
@@ -254,7 +257,8 @@ const SECTIONS = [
     { p: "research.sources", t: "list", wide: true, l: "Preferred sources", ph: "arxiv.org, official documentation, SEC filings", h: "Domains or kinds of source the planner should favour, comma-separated." },
   ] },
   { id: "report", title: "Report", desc: "Layout, formats and what goes on the page", fields: [
-    { p: "report.formats", t: "multi", o: ["pdf", "html", "md"], l: "Formats", h: "PDF needs Chrome or Chromium." },
+    { p: "report.formats", t: "multi", o: ["pdf", "html", "md", "pptx"], l: "Formats", h: "PDF needs Chrome or Chromium. pptx is a PowerPoint deck with speaker notes." },
+    { p: "report.theme", t: "seg", o: ["auto", "aurora", "meridian", "ember", "slate"], l: "Theme", h: "The visual template of the report and the deck. auto lets the editor pick one for the subject." },
     { p: "report.layout", t: "seg", o: ["auto", "full", "compact", "paper"], l: "Layout", h: "auto lets the editor choose; full has a cover and contents; compact a title block; paper is the academic layout." },
     { p: "report.page_size", t: "seg", o: ["A4", "Letter"], l: "Page size" },
     { p: "report.author", t: "text", l: "Author", ph: "Shown on the cover" },
@@ -395,6 +399,8 @@ const draftRequest = () => ({
   codebase: byCodebase() ? S.draft.codebase : "",
   focus: byCodebase() ? S.draft.focus : "",
   overrides: S.draft.overrides,
+  // The interview travels with the run only while the topic is the one it confirmed.
+  ...(S.draft.scope && !byCodebase() && S.draft.scope.topic === S.draft.topic.trim() ? { scope: S.draft.scope } : {}),
 });
 
 // cliFor returns the command that starts the same run from a terminal, and
@@ -406,6 +412,7 @@ function cliFor(d) {
     : [shq(d.topic.trim() || "<topic>")];
   if (d.mode === "explainer") parts.push("explain");
   else if (d.mode === "whitepaper") parts.push("whitepaper");
+  else if (d.mode === "slides") parts.push("slides");
   else parts.push("report");
   parts.push(...subject);
   if (d.mode === "short" || d.mode === "quick") parts.push("--" + d.mode);
@@ -456,12 +463,87 @@ function pageNew(main) {
     }));
   }
 
+  // The expert interview: questions about this topic, then a rewritten topic
+  // that replaces the draft only when the user accepts it.
+  const X = { step: "idle", topic: "", understanding: "", questions: [], answers: {}, brief: null, cost: 0 };
+  const expertBox = h("div", { class: "expert" });
+  function drawExpert() {
+    const busy = (text) => h("div", { class: "expert-busy" }, h("span", { class: "spin" }), text);
+    const scoped = d.scope && d.scope.topic === d.topic.trim();
+    const start = async () => {
+      if (!d.topic.trim()) return toast("Write a topic first", "err");
+      Object.assign(X, { step: "asking", topic: d.topic.trim(), answers: {}, brief: null, cost: 0 });
+      drawExpert();
+      try {
+        const r = await api("POST", "/api/scope/questions", { ...draftRequest(), scope: undefined });
+        Object.assign(X, { step: "questions", understanding: r.understanding, questions: r.questions, cost: r.cost_usd });
+      } catch (e) { X.step = "idle"; oops(e); }
+      drawExpert();
+    };
+    const brief = async () => {
+      X.step = "briefing"; drawExpert();
+      const answers = X.questions.map((q) => ({ id: q.id, answer: (X.answers[q.id] || []).join("; ") }));
+      try {
+        const r = await api("POST", "/api/scope/brief", { ...draftRequest(), scope: undefined, topic: X.topic, questions: X.questions, answers });
+        Object.assign(X, { step: "brief", brief: r.brief, sent: answers, cost: X.cost + r.cost_usd });
+      } catch (e) { X.step = "questions"; oops(e); }
+      drawExpert();
+    };
+    if (X.step === "idle") return fill(expertBox,
+      h("div", { class: "expert-bar" },
+        h("button", { type: "button", class: "btn", onclick: start }, icon("spark"), scoped ? "Refine again" : "Refine with an expert"),
+        h("span", { class: "faint" }, scoped ? "This topic was confirmed after an expert interview; the planner will follow your answers." : "An expert asks a few questions about this topic and rewrites it for you to confirm. Costs one or two small agent calls.")));
+    if (X.step === "asking") return fill(expertBox, busy("The expert is reading your request…"));
+    if (X.step === "briefing") return fill(expertBox, busy("Writing the brief from your answers…"));
+    if (X.step === "questions") return fill(expertBox,
+      h("div", { class: "expert-head" }, h("b", {}, "Expert questions"), h("span", { class: "faint" }, "Pick, type your own, or leave blank to let the expert decide.")),
+      h("p", { class: "muted" }, X.understanding),
+      X.questions.map((q, i) => {
+        const picked = () => X.answers[q.id] || [];
+        const chips = h("div", { class: "chips" });
+        const own = h("input", { type: "text", placeholder: "Your own answer", "aria-label": "Your own answer to: " + q.question,
+          oninput: (e) => { const rest = picked().filter((a) => q.options.includes(a)); X.answers[q.id] = e.target.value.trim() ? [...rest, e.target.value.trim()] : rest; } });
+        const drawChips = () => fill(chips, q.options.map((o) => h("button", { type: "button", class: "chip", "aria-pressed": String(picked().includes(o)), onclick: () => {
+          const typed = picked().filter((a) => !q.options.includes(a));
+          const chosen = picked().filter((a) => q.options.includes(a));
+          const next = chosen.includes(o) ? chosen.filter((a) => a !== o) : q.multi ? [...chosen, o] : [o];
+          X.answers[q.id] = [...next, ...typed]; drawChips();
+        } }, o)));
+        drawChips();
+        return h("div", { class: "expert-q" }, h("div", { class: "lab" }, h("span", { class: "faint" }, (i + 1) + "/" + X.questions.length + " "), q.question),
+          q.why ? h("div", { class: "help" }, q.why) : null, chips, own);
+      }),
+      h("div", { class: "expert-bar" },
+        h("button", { type: "button", class: "btn primary", onclick: brief }, "Write the brief"),
+        h("button", { type: "button", class: "btn ghost", onclick: () => { X.step = "idle"; drawExpert(); } }, "Cancel")));
+    // step === "brief": the user decides what the topic will be.
+    const b = X.brief;
+    const edit = h("textarea", { rows: 5, value: b.topic, "aria-label": "Refined topic" });
+    const list = (title, items) => (items && items.length ? h("div", {}, h("div", { class: "lab" }, title), h("ul", {}, items.map((it) => h("li", {}, it)))) : null);
+    return fill(expertBox,
+      h("div", { class: "expert-head" }, h("b", {}, "This will be the topic"), h("span", { class: "faint" }, "Edit it if you like, then confirm. Scoping cost $" + X.cost.toFixed(2) + ".")),
+      b.summary ? h("p", { class: "muted" }, b.summary) : null,
+      edit,
+      h("div", { class: "expert-lists" }, list("In scope", b.in_scope), list("Out of scope", b.out_of_scope), list("Assumptions", b.assumptions)),
+      h("div", { class: "expert-bar" },
+        h("button", { type: "button", class: "btn primary", onclick: () => {
+          const topic = edit.value.trim();
+          if (!topic) return toast("The topic is empty", "err");
+          d.scope = { original_topic: X.topic, understanding: X.understanding, questions: X.questions, answers: X.sent, brief: b, topic, cost_usd: X.cost };
+          d.topic = topic; X.step = "idle";
+          drawSubject(); changed(); toast("Topic updated", "ok");
+        } }, "Use this topic"),
+        h("button", { type: "button", class: "btn", onclick: () => { X.step = "questions"; drawExpert(); } }, "Change answers"),
+        h("button", { type: "button", class: "btn ghost", onclick: () => { X.step = "idle"; drawExpert(); } }, "Keep my original")));
+  }
+
   function drawSubject() {
     const topic = h("div", { class: "topic" }, h("textarea", {
       value: d.topic, rows: 3, "aria-label": "Research topic",
       placeholder: d.mode === "explainer" ? "What should be explained? e.g. How Raft reaches consensus" : d.mode === "whitepaper" ? "Paper topic, e.g. Sparse attention for long-context transformers" : "What should Boku research? e.g. How Kubernetes is being used for AI infrastructure",
       oninput: (e) => { d.topic = e.target.value; changed(); },
     }));
+    add(topic, [drawExpert()]);
     if (d.mode !== "explainer") return fill(subject, topic);
     fill(subject,
       h("div", { class: "seg", role: "group", "aria-label": "Explainer subject" }, [["topic", "A topic"], ["codebase", "A local codebase"]].map(([id, label]) =>
@@ -669,7 +751,7 @@ function pageRun(main, id, tab) {
           h("h1", {}, v.topic),
           h("p", { class: "sub mono small" }, v.dir)),
         h("div", { class: "row" },
-          ["pdf", "html", "md"].filter((f) => outs[f]).map((f) => h("a", { class: "btn" + (f === "pdf" ? " primary" : ""), href: `/api/runs/${id}/output/${f}`, target: "_blank", rel: "noopener" }, icon("open"), f.toUpperCase())),
+          ["pdf", "pptx", "html", "md"].filter((f) => outs[f]).map((f) => h("a", { class: "btn" + (f === "pdf" ? " primary" : ""), href: `/api/runs/${id}/output/${f}`, target: "_blank", rel: "noopener" }, icon("open"), f.toUpperCase())),
           can.cancel ? h("button", { class: "btn danger", type: "button", onclick: cancel }, icon("stop"), "Cancel") : null,
           can.resume ? h("button", { class: "btn primary", type: "button", onclick: () => reopen("resume") }, icon("play"), "Resume") : null,
           can.render ? h("button", { class: "btn", type: "button", onclick: () => reopen("render") }, icon("refresh"), "Re-render") : null,
@@ -702,8 +784,8 @@ function pageRun(main, id, tab) {
     const c = R.v.config;
     const o = { formats: [...c.report.formats], output: c.output.directory, max_cost_usd: c.agents.max_cost_usd, max_parallel: c.agents.max_parallel, include_references: c.report.include_references };
     const chips = h("div", { class: "chips" });
-    const drawChips = () => fill(chips, ["pdf", "html", "md"].map((f) => h("button", { type: "button", class: "chip", "aria-pressed": String(o.formats.includes(f)),
-      onclick: () => { o.formats = ["pdf", "html", "md"].filter((x) => (x === f ? !o.formats.includes(f) : o.formats.includes(x))); drawChips(); } }, f)));
+    const drawChips = () => fill(chips, ["pdf", "html", "md", "pptx"].map((f) => h("button", { type: "button", class: "chip", "aria-pressed": String(o.formats.includes(f)),
+      onclick: () => { o.formats = ["pdf", "html", "md", "pptx"].filter((x) => (x === f ? !o.formats.includes(f) : o.formats.includes(x))); drawChips(); } }, f)));
     drawChips();
     const field = (label, control, help) => h("div", { class: "field" }, h("div", { class: "lab" }, label), control, help && h("div", { class: "help" }, help));
     dialog(action === "resume" ? "Resume run" : "Re-render report", [

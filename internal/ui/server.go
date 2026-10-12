@@ -33,6 +33,7 @@ import (
 	"github.com/riteshsonawane1372/boku/internal/logx"
 	"github.com/riteshsonawane1372/boku/internal/orchestrator"
 	"github.com/riteshsonawane1372/boku/internal/run"
+	"github.com/riteshsonawane1372/boku/internal/scope"
 )
 
 //go:embed web
@@ -61,6 +62,11 @@ type Server struct {
 	Execute func(ctx context.Context, cfg config.Config, r *run.Run, log *logx.Logger, renderOnly bool) error
 	// Doctor checks the runtime; cfgErr is the error from loading cfg.
 	Doctor func(cfg config.Config, cfgErr error) []Check
+	// Expert returns the scoping expert for a configuration; nil disables
+	// the "refine with an expert" step.
+	Expert func(ctx context.Context, cfg config.Config) (*scope.Expert, error)
+	// SaveScope stores a confirmed scoping interview in a new run.
+	SaveScope func(r *run.Run, rec scope.Record) error
 
 	base context.Context
 	mu   sync.Mutex
@@ -93,6 +99,8 @@ func (s *Server) Handler(ctx context.Context) http.Handler {
 	mux.HandleFunc("GET /api/doctor", s.handleDoctor)
 	mux.HandleFunc("POST /api/resolve", s.handleResolve)
 	mux.HandleFunc("PUT /api/config", s.handleSaveConfig)
+	mux.HandleFunc("POST /api/scope/questions", s.handleScopeQuestions)
+	mux.HandleFunc("POST /api/scope/brief", s.handleScopeBrief)
 	mux.HandleFunc("GET /api/runs", s.handleRuns)
 	mux.HandleFunc("POST /api/runs", s.handleCreate)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRun)
@@ -243,6 +251,9 @@ type request struct {
 	// Overrides is a partial configuration document laid over the base
 	// configuration after the mode's adjustments, like CLI flags.
 	Overrides json.RawMessage `json:"overrides"`
+	// Scope is the scoping interview that produced Topic, when the user
+	// refined the request with the expert and confirmed the result.
+	Scope *scope.Record `json:"scope,omitempty"`
 }
 
 // resolve turns a request into the configuration and topic a run would use.
@@ -337,6 +348,69 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"path": path})
+}
+
+// ---------- scoping interview ----------
+
+// expertFor resolves a request and returns the expert that will scope it.
+func (s *Server) expertFor(r *http.Request, req request) (*scope.Expert, string, error) {
+	if s.Expert == nil {
+		return nil, "", errors.New("the scoping expert is not available")
+	}
+	cfg, topic, err := s.resolve(req)
+	if err != nil {
+		return nil, "", err
+	}
+	if cfg.Research.Codebase != "" {
+		return nil, "", errors.New("the expert scopes a topic; a codebase explainer takes a focus instead")
+	}
+	e, err := s.Expert(r.Context(), cfg)
+	return e, topic, err
+}
+
+// handleScopeQuestions has the expert read the request and ask its questions.
+func (s *Server) handleScopeQuestions(w http.ResponseWriter, r *http.Request) {
+	var req request
+	if err := readBody(r, &req); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	expert, topic, err := s.expertFor(r, req)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	iv, cost, err := expert.Ask(r.Context(), topic)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"topic": topic, "understanding": iv.Understanding, "questions": iv.Questions, "cost_usd": cost})
+}
+
+// handleScopeBrief turns the answers into the refined topic. Nothing is
+// started: the user confirms the brief before creating a run.
+func (s *Server) handleScopeBrief(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		request
+		Questions []scope.Question `json:"questions"`
+		Answers   []scope.Answer   `json:"answers"`
+	}
+	if err := readBody(r, &body); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	expert, topic, err := s.expertFor(r, body.request)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	brief, cost, err := expert.Refine(r.Context(), topic, body.Questions, body.Answers)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"brief": brief, "cost_usd": cost})
 }
 
 // ---------- runs ----------
@@ -444,6 +518,14 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	// Keep the interview only when the run's topic is the one it confirmed.
+	if sc := req.Scope; sc != nil && s.SaveScope != nil && strings.TrimSpace(sc.Topic) == topic {
+		sc.Topic = topic
+		if err := s.SaveScope(rn, *sc); err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	id := rn.Manifest().ID
 	if err := s.start(id, rn, cfg, "run"); err != nil {
@@ -800,6 +882,7 @@ var contentTypes = map[string]string{
 	".html": "text/html; charset=utf-8",
 	".svg":  "image/svg+xml",
 	".pdf":  "application/pdf",
+	".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	".png":  "image/png",
 	".jpg":  "image/jpeg",
 }
@@ -827,7 +910,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	if ext == ".html" || ext == ".svg" {
 		w.Header().Set("Content-Security-Policy", "sandbox")
 	}
-	if !known || r.URL.Query().Get("download") != "" {
+	if !known || ext == ".pptx" || r.URL.Query().Get("download") != "" {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filepath.Base(path)))
 	}
 	w.Header().Set("Content-Type", ct)

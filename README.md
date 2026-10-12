@@ -49,7 +49,7 @@ That is a real `--depth quick` run: 11 agent calls, 72 findings from 75
 sources (56 tier 1), 2 claims rejected by the fact checker, about 20 minutes.
 
 **Website and docs: <https://boku.riteshsonawane.com/>** · [Documentation](https://boku.riteshsonawane.com/docs.html)
-(source in `site/`; preview locally with `make site && python3 -m http.server -d _site 8000`).
+(a Hugo site: `hugo.toml`, sources in `site/`; preview with `hugo server`, build with `make site`).
 
 ## Report modes
 
@@ -61,6 +61,7 @@ No flag gives the default full report. Pick another mode per report:
 | Short | `--short` | 3 researchers, one fact-check round, a compact 3–8 page brief | ≈ $4–6 (estimate) |
 | Quick | `--quick` | every agent on a local Ollama model with Boku's own web search; no fact-check | $0 API spend |
 | Whitepaper | `boku whitepaper` or `--whitepaper` | the most detailed format: a research paper with abstract, keywords, numbered sections, captioned figures and tables, `[n]` citations and references; deep research | not yet measured (at least full-report cost) |
+| Slides | `boku slides` or `--slides` | a presentation: 4–7 sections that each make one point, published as a PowerPoint deck (`.pptx`) with speaker notes |
 | Explainer | `boku explain` or `--explainer` | a visual explainer of a topic or a local codebase: big picture, key ideas, architecture and process diagrams, step-by-step flows, glossary | not yet measured |
 
 ```bash
@@ -72,6 +73,55 @@ boku report "…" --quick --local-model qwen2.5:14b                          # a
 Quick reports are a first pass: nothing checks a small model's claims (the
 methodology appendix says so), although it can still only cite pages Boku
 actually fetched.
+
+## Expert scoping (`--refine`)
+
+A one-line topic leaves the planner to guess the scope. With `--refine`, a
+scoping expert reads the request first, asks three to five questions written
+for that subject (with concrete options to pick from), and rewrites the
+request into a brief: the refined topic, what is in and out of scope, and the
+assumption made for anything you skipped. Nothing is researched until you
+confirm, edit or reject it.
+
+```bash
+boku report "EV charging market" --refine
+```
+
+The confirmed topic becomes the run's topic, the interview is saved as
+`scope.json` / `scope.md` in the run directory, and the planner is told to
+honour your answers. In `boku ui` it is the **Refine with an expert** button
+under the topic box. Scoping costs two small agent calls and needs an
+interactive terminal.
+
+## Slides (PowerPoint)
+
+```bash
+boku slides "State of EV charging in Europe"   # a deck written for slides
+boku report "…" --format pdf,pptx              # report and deck from one run
+boku render runs/<run> --format pptx           # a deck from a finished run, no agents
+```
+
+The deck is 16:9: cover, agenda, executive summary with headline metric
+tiles, key-finding cards, one or more slides per section (the section's
+takeaway as headline, the first sentence of each paragraph as a bullet), and
+every chart, diagram and table on a slide of its own with a "what it shows"
+panel. Charts and diagrams are native shapes, tables are real tables, and the
+speaker notes carry the full cited text. Boku writes the `.pptx` itself (no
+template, no office suite, no Chrome); it opens in PowerPoint, Keynote and
+Google Slides. Example:
+[`docs/examples/kubernetes-ai-infrastructure.pptx`](docs/examples/kubernetes-ai-infrastructure.pptx).
+
+## Themes and dynamic structure
+
+The report and the deck share a theme: `aurora` (indigo/violet gradient
+mesh), `meridian` (navy and teal, dark cover), `ember` (warm orange band) or
+`slate` (monochrome). With `report.theme: auto` the editor picks one for the
+subject; `--theme` sets it, and re-rendering with another theme is free.
+The editor also chooses the structure: headline **metric tiles**, a
+one-sentence **takeaway** per section, and six chart forms (`column`,
+`stacked`, `bar`, `line`, `area`, `donut`). Metrics follow the chart rule:
+a number is printed only if it appears in the cited findings. The typeface
+(Inter, OFL) is embedded so PDFs look the same on every machine.
 
 ## Whitepapers
 
@@ -291,7 +341,9 @@ Flags for `boku report`:
 
 | Flag | Meaning |
 | --- | --- |
-| `--short`, `--quick`, `--explainer`, `--whitepaper`, `--mode full\|short\|quick\|explainer\|whitepaper` | report mode (see above) |
+| `--short`, `--quick`, `--explainer`, `--whitepaper`, `--slides`, `--mode full\|short\|quick\|explainer\|whitepaper\|slides` | report mode (see above) |
+| `--refine` | an expert asks topic-specific questions first and rewrites the topic for you to confirm |
+| `--theme auto\|aurora\|meridian\|ember\|slate` | visual template of the report and deck |
 | `--save-ref` | include the source list and evidence register in the report |
 | `--local-model TAG` | Ollama model for `--quick` and formatting |
 | `--depth quick\|standard\|deep` | how much research to do |
@@ -300,7 +352,7 @@ Flags for `boku report`:
 | `--max-cost USD` | stop launching agents once spend reaches this |
 | `--freshness 30d\|6m\|1y` | window within which information counts as current |
 | `--sources "SEC filings, CNCF surveys"` | preferred sources or source types |
-| `--format pdf,html,md` | outputs to publish |
+| `--format pdf,html,md,pptx` | outputs to publish (`pptx` is a PowerPoint deck) |
 | `--model opus` | model for all agents |
 | `--iterations N` | fact-check → follow-up research rounds |
 | `--min-sources N` | sources the research gate expects |
@@ -340,16 +392,24 @@ start; anyone with that URL can start agents and read run files.
 
 ## Example output
 
+Real reports, decks and a paper-layout PDF are in
+[`docs/examples`](docs/examples/README.md): two research reports, the same
+two runs as PowerPoint decks, and a report set in the whitepaper layout.
+
 Pages from the report above, unedited. The full PDF is
 [`docs/examples/kubernetes-ai-infrastructure.pdf`](docs/examples/kubernetes-ai-infrastructure.pdf)
-(32 pages); pages 6–7 on their own are
+(24 pages), and the same run as a deck is
+[`docs/examples/kubernetes-ai-infrastructure.pptx`](docs/examples/kubernetes-ai-infrastructure.pptx)
+(36 slides). An earlier rendering of two pages, used in the walkthrough below, is
 [`docs/examples/kubernetes-ai-infrastructure-pages-6-7.pdf`](docs/examples/kubernetes-ai-infrastructure-pages-6-7.pdf).
 
 | Cover | Key findings |
 | :---: | :---: |
 | <img src="docs/images/report-page-1.png" width="400" alt="Report cover"> | <img src="docs/images/report-page-4.png" width="400" alt="Key findings page"> |
-| **Page 6: section with table and callout** | **Page 7: chart built from evidence** |
-| <img src="docs/images/report-page-6.png" width="400" alt="Report page 6"> | <img src="docs/images/report-page-7.png" width="400" alt="Report page 7"> |
+| **Chart and table built from evidence** | **Architecture diagram** |
+| <img src="docs/images/report-page-6.png" width="400" alt="Report page with a chart and a table"> | <img src="docs/images/report-page-7.png" width="400" alt="Report page with an architecture diagram"> |
+| **Deck: executive summary** | **Deck: chart with commentary** |
+| <img src="docs/images/slide-summary.png" width="400" alt="Executive summary slide"> | <img src="docs/images/slide-chart.png" width="400" alt="Chart slide"> |
 
 ### How pages 6–7 were generated
 

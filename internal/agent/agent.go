@@ -25,10 +25,13 @@ const (
 	RoleEditorial   = "editorial"
 	// RoleFormatter rewrites flagged passages for style on the local model.
 	RoleFormatter = "formatter"
+	// RoleScoper is the expert who questions a request before a run starts
+	// and rewrites it into a precise brief (see internal/scope).
+	RoleScoper = "scoper"
 )
 
 // AllRoles lists every role, in pipeline order.
-var AllRoles = []string{RolePlanner, RolePrimary, RoleMarket, RoleTechnical, RoleFinancial, RoleCompetitive, RoleCaseStudy, RoleFactChecker, RoleSynthesizer, RoleEditorial, RoleFormatter}
+var AllRoles = []string{RoleScoper, RolePlanner, RolePrimary, RoleMarket, RoleTechnical, RoleFinancial, RoleCompetitive, RoleCaseStudy, RoleFactChecker, RoleSynthesizer, RoleEditorial, RoleFormatter}
 
 // ResearchRoles are the roles the planner may assign to workstreams.
 var ResearchRoles = []string{RolePrimary, RoleMarket, RoleTechnical, RoleFinancial, RoleCompetitive, RoleCaseStudy}

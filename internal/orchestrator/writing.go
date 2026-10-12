@@ -263,7 +263,7 @@ func (o *Orchestrator) buildOptions(st *state, syn Synthesis) report.BuildOption
 	}
 	return report.BuildOptions{
 		Charts: o.Config.Report.Charts, Diagrams: o.Config.Report.Diagrams,
-		Layout: o.Config.Report.Layout, IncludeReferences: o.Config.Report.IncludeReferences,
+		Layout: o.Config.Report.Layout, Theme: o.Config.Report.Theme, IncludeReferences: o.Config.Report.IncludeReferences,
 		// Small local models mis-cite more often; drop bad citations instead of blocking.
 		Lenient: o.Config.Report.Mode == config.ModeQuick,
 		Method: &report.Method{

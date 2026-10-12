@@ -9,6 +9,7 @@ package render
 import (
 	"bytes"
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"html"
 	"html/template"
@@ -25,6 +26,16 @@ var styleCSS string
 //go:embed report.html.tmpl
 var reportTemplate string
 
+// The report's typeface (Inter, SIL Open Font License; see fonts/OFL.txt),
+// subset to Latin, Greek, currency, arrows and maths. It is embedded in the
+// HTML so the PDF looks the same on every machine.
+//
+//go:embed fonts/Inter.woff2
+var interFont []byte
+
+var fontFaceCSS = template.CSS(`@font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: block; src: url(data:font/woff2;base64,` +
+	base64.StdEncoding.EncodeToString(interFont) + `) format("woff2"); }`)
+
 var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"inline":       func(s string) template.HTML { return inlineHTML(s, true) },
 	"two":          func(n int) string { return fmt.Sprintf("%02d", n) },
@@ -33,10 +44,16 @@ var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"day":          func(t time.Time) string { return t.Format("2 January 2006") },
 	"date":         func(t *time.Time) string { return fmtDate(t) },
 	"sources":      func(b report.Block) template.HTML { return sourceLine(b, true) },
-	"chart":        func(b report.Block) template.HTML { return template.HTML(ChartSVG(b.Chart)) },
-	"diagram":      func(b report.Block) template.HTML { return template.HTML(DiagramSVG(b.Diagram)) },
+	"chart":        func(b report.Block) template.HTML { return template.HTML(ChartSVG(b.Chart, ThemeFor(""))) },
+	"diagram":      func(b report.Block) template.HTML { return template.HTML(DiagramSVG(b.Diagram, ThemeFor(""))) },
 	"pagecss":      pageCSS,
 	"css":          func() template.CSS { return template.CSS(styleCSS) },
+	"fontface":     func() template.CSS { return fontFaceCSS },
+	"themecss":     func() template.CSS { return themeCSS(ThemeFor("")) },
+	"trend":        trendMark,
+	"plain":        report.PlainText,
+	"cell":         func(s string) template.HTML { return inlineHTML(breakLong(s), true) },
+	"breakLong":    breakLong,
 	"add":          func(a, b int) int { return a + b },
 	"calloutLabel": calloutLabel,
 	"join":         strings.Join,
@@ -50,9 +67,14 @@ func HTML(r *report.Report) ([]byte, error) {
 	}
 	// Citations link to the source list only when it is in the document.
 	links := r.IncludeReferences
+	th := themeOf(r)
 	t.Funcs(template.FuncMap{
-		"inline":  func(s string) template.HTML { return inlineHTML(s, links) },
-		"sources": func(b report.Block) template.HTML { return sourceLine(b, links) },
+		"chart":    func(b report.Block) template.HTML { return template.HTML(ChartSVG(b.Chart, th)) },
+		"diagram":  func(b report.Block) template.HTML { return template.HTML(DiagramSVG(b.Diagram, th)) },
+		"themecss": func() template.CSS { return themeCSS(th) },
+		"inline":   func(s string) template.HTML { return inlineHTML(s, links) },
+		"cell":     func(s string) template.HTML { return inlineHTML(breakLong(s), links) },
+		"sources":  func(b report.Block) template.HTML { return sourceLine(b, links) },
 	})
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, r); err != nil {
@@ -114,6 +136,60 @@ func sourceLine(b report.Block, links bool) template.HTML {
 		parts = append(parts, string(inlineHTML(b.Text, links)))
 	}
 	return template.HTML(strings.Join(parts, " "))
+}
+
+// longToken is the length from which a word in a table cell gets soft break
+// points.
+const longToken = 18
+
+// breakLong adds zero-width spaces to long unbroken tokens (URLs, paths,
+// identifiers) so a table cell can wrap them: after a separator inside a long
+// token, and otherwise every longToken characters. Ordinary words are left
+// alone.
+func breakLong(s string) string {
+	var b strings.Builder
+	for i, field := range strings.Split(s, " ") {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		if utf8.RuneCountInString(field) < longToken || strings.ContainsAny(field, "\uE000\uE001") {
+			b.WriteString(field)
+			continue
+		}
+		run := 0
+		rs := []rune(field)
+		for j, r := range rs {
+			b.WriteRune(r)
+			run++
+			if j == len(rs)-1 {
+				break
+			}
+			if (strings.ContainsRune("/._-:=,&?", r) && run >= 4 && len(rs)-j > 3) || run >= longToken {
+				b.WriteRune('\u200b')
+				run = 0
+			}
+		}
+	}
+	return b.String()
+}
+
+// themeCSS sets the stylesheet's colour variables for a theme.
+func themeCSS(t Theme) template.CSS {
+	return template.CSS(fmt.Sprintf(`:root { --accent: %s; --accent-2: %s; --accent-3: %s; --accent-soft: %s; --accent-line: %s; --ink: %s; --body: %s; --muted: %s; --faint: %s; --rule: %s; --tint: %s; }`,
+		t.Accent, t.Accent2, t.Accent3, mix(t.Accent, "#ffffff", 0.93), mix(t.Accent, "#ffffff", 0.75), t.Ink, t.Body, t.Muted, t.Faint, t.Rule, t.Tint))
+}
+
+// trendMark is the arrow shown on a metric tile.
+func trendMark(trend string) string {
+	switch trend {
+	case "up":
+		return "↑"
+	case "down":
+		return "↓"
+	case "flat":
+		return "→"
+	}
+	return ""
 }
 
 func calloutLabel(b report.Block) string {

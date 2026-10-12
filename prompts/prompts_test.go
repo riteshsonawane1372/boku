@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var roles = []string{"planner", "primary", "market", "technical", "financial", "competitive", "case-study", "fact-checker", "synthesizer", "editorial", "formatter"}
+var roles = []string{"scoper", "planner", "primary", "market", "technical", "financial", "competitive", "case-study", "fact-checker", "synthesizer", "editorial", "formatter"}
 
 func TestEveryRoleRenders(t *testing.T) {
 	lib, err := Load("")

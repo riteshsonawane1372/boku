@@ -8,49 +8,379 @@
     "Management's savings target of about $18 million by 2027 is an estimate made in 2024 [F005]; no later confirmation was found."
   ],
   "key_findings": [
-    {"headline": "The migration is largely complete", "detail": "85% of dispatch services ran on Kubernetes by December 2025 [F001]."},
-    {"headline": "Unit costs fell by about a quarter", "detail": "Infrastructure cost per shipment declined from $0.42 in 2023 to $0.31 in 2025 [F002]."},
-    {"headline": "The industry is moving the same way", "detail": "61% of surveyed platform teams run production AI inference on Kubernetes [F003]."}
+    {
+      "headline": "The migration is largely complete",
+      "detail": "85% of dispatch services ran on Kubernetes by December 2025 [F001]."
+    },
+    {
+      "headline": "Unit costs fell by about a quarter",
+      "detail": "Infrastructure cost per shipment declined from $0.42 in 2023 to $0.31 in 2025 [F002]."
+    },
+    {
+      "headline": "The industry is moving the same way",
+      "detail": "61% of surveyed platform teams run production AI inference on Kubernetes [F003]."
+    }
   ],
   "sections": [
-    {"title": "Context and approach", "blocks": [
-      {"type": "paragraph", "text": "Northwind's dispatch system coordinated routing, carrier assignment and customer notifications. The company chose an incremental, service-by-service migration rather than a single cut-over [F001]."},
-      {"type": "diagram", "diagram": {"kind": "architecture", "title": "Target dispatch platform (simplified)", "nodes": [
-        {"id":"api","label":"Public API gateway","group":"Edge"},
-        {"id":"dispatch","label":"Dispatch services","group":"Kubernetes"},
-        {"id":"routing","label":"Route optimisation","group":"Kubernetes"},
-        {"id":"notify","label":"Notification workers","group":"Kubernetes"},
-        {"id":"db","label":"Operational database","group":"Managed data"},
-        {"id":"queue","label":"Event stream","group":"Managed data"}
-      ], "edges": [
-        {"from":"api","to":"dispatch"},{"from":"dispatch","to":"routing"},{"from":"dispatch","to":"queue","label":"events"},
-        {"from":"queue","to":"notify"},{"from":"dispatch","to":"db"}
-      ]}, "finding_ids": ["F001"]},
-      {"type": "callout", "tone": "insight", "text": "Incremental migration let the team keep the legacy system as a fallback throughout, which **reduced cut-over risk** at the cost of running two platforms for most of 2025 [F001]."}
-    ]},
-    {"title": "Results", "blocks": [
-      {"type": "paragraph", "text": "Reported cost per shipment declined each year of the programme [F002]."},
-      {"type": "chart", "chart": {"kind": "column", "title": "Infrastructure cost per shipment", "units": "US dollars per shipment", "labels": ["2023","2024","2025"], "series": [{"name":"Cost per shipment","values":[0.42,0.37,0.31]}]}, "finding_ids": ["F002"], "as_of": "FY2025"},
-      {"type": "table", "title": "Outcome summary", "columns": ["Measure","Before","After","Evidence status"], "rows": [
-        ["Cost per shipment","$0.42 (2023)","$0.31 (2025)","Reported [F002]"],
-        ["Deploys per week","12","49","Derived, single source [F004]"],
-        ["Savings by 2027","—","≈$18M","Estimate made in 2024 [F005]"]
-      ], "finding_ids": ["F002","F004","F005"]},
-      {"type": "callout", "tone": "caution", "text": "The $18 million savings figure is management guidance from 2024, not a reported result [F005]."}
-    ]},
-    {"title": "Industry context", "blocks": [
-      {"type": "paragraph", "text": "Northwind's direction matches the wider market: a 2026 survey found that most platform teams now run AI inference on Kubernetes [F003]."},
-      {"type": "chart", "chart": {"kind": "bar", "title": "AI workloads run on Kubernetes", "units": "% of surveyed organisations (n = 1,240)", "labels": ["Production inference","Model training","GPU sharing"], "series": [{"name":"Share","values":[61,38,22]}]}, "finding_ids": ["F003"], "as_of": "2026-04"},
-      {"type": "subheading", "text": "Programme timeline"},
-      {"type": "diagram", "diagram": {"kind": "timeline", "title": "Migration milestones", "nodes": [
-        {"id":"a","label":"Investor day sets savings target","detail":"Jun 2024"},
-        {"id":"b","label":"First services migrated","detail":"2024"},
-        {"id":"c","label":"85% of services migrated","detail":"Dec 2025"},
-        {"id":"d","label":"Savings target date","detail":"2027"}
-      ]}, "finding_ids": ["F001","F005"]}
-    ]}
+    {
+      "title": "Context and approach",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Northwind's dispatch system coordinated routing, carrier assignment and customer notifications. The company chose an incremental, service-by-service migration rather than a single cut-over [F001]."
+        },
+        {
+          "type": "diagram",
+          "diagram": {
+            "kind": "architecture",
+            "title": "Target dispatch platform (simplified)",
+            "nodes": [
+              {
+                "id": "api",
+                "label": "Public API gateway",
+                "group": "Edge"
+              },
+              {
+                "id": "dispatch",
+                "label": "Dispatch services",
+                "group": "Kubernetes"
+              },
+              {
+                "id": "routing",
+                "label": "Route optimisation",
+                "group": "Kubernetes"
+              },
+              {
+                "id": "notify",
+                "label": "Notification workers",
+                "group": "Kubernetes"
+              },
+              {
+                "id": "db",
+                "label": "Operational database",
+                "group": "Managed data"
+              },
+              {
+                "id": "queue",
+                "label": "Event stream",
+                "group": "Managed data"
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "dispatch"
+              },
+              {
+                "from": "dispatch",
+                "to": "routing"
+              },
+              {
+                "from": "dispatch",
+                "to": "queue",
+                "label": "events"
+              },
+              {
+                "from": "queue",
+                "to": "notify"
+              },
+              {
+                "from": "dispatch",
+                "to": "db"
+              }
+            ]
+          },
+          "finding_ids": [
+            "F001"
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "insight",
+          "text": "Incremental migration let the team keep the legacy system as a fallback throughout, which **reduced cut-over risk** at the cost of running two platforms for most of 2025 [F001]."
+        }
+      ],
+      "takeaway": "The migration replaced a monolith with an event-driven platform over two years [F001]."
+    },
+    {
+      "title": "Results",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Reported cost per shipment declined each year of the programme [F002]."
+        },
+        {
+          "type": "chart",
+          "chart": {
+            "kind": "column",
+            "title": "Infrastructure cost per shipment",
+            "units": "US dollars per shipment",
+            "labels": [
+              "2023",
+              "2024",
+              "2025"
+            ],
+            "series": [
+              {
+                "name": "Cost per shipment",
+                "values": [
+                  0.42,
+                  0.37,
+                  0.31
+                ]
+              }
+            ]
+          },
+          "finding_ids": [
+            "F002"
+          ],
+          "as_of": "FY2025"
+        },
+        {
+          "type": "chart",
+          "chart": {
+            "kind": "area",
+            "title": "Deployment frequency",
+            "units": "Deploys per week",
+            "labels": [
+              "2023",
+              "2025"
+            ],
+            "series": [
+              {
+                "name": "Deploys per week",
+                "values": [
+                  12,
+                  49
+                ]
+              }
+            ],
+            "note": "Company-reported."
+          },
+          "finding_ids": [
+            "F004"
+          ],
+          "as_of": "2025"
+        },
+        {
+          "type": "table",
+          "title": "Outcome summary",
+          "columns": [
+            "Measure",
+            "Before",
+            "After",
+            "Evidence status"
+          ],
+          "rows": [
+            [
+              "Cost per shipment",
+              "$0.42 (2023)",
+              "$0.31 (2025)",
+              "Reported [F002]"
+            ],
+            [
+              "Deploys per week",
+              "12",
+              "49",
+              "Derived, single source [F004]"
+            ],
+            [
+              "Savings by 2027",
+              "—",
+              "≈$18M",
+              "Estimate made in 2024 [F005]"
+            ]
+          ],
+          "finding_ids": [
+            "F002",
+            "F004",
+            "F005"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Compute is the largest share of what the platform costs to run, at 46% of spend in 2025 [F006]."
+        },
+        {
+          "type": "chart",
+          "chart": {
+            "kind": "donut",
+            "title": "Dispatch platform spend by category",
+            "units": "% of platform spend, 2025",
+            "labels": [
+              "Compute",
+              "Storage",
+              "Networking",
+              "Observability"
+            ],
+            "series": [
+              {
+                "name": "Share",
+                "values": [
+                  46,
+                  21,
+                  18,
+                  15
+                ]
+              }
+            ]
+          },
+          "finding_ids": [
+            "F006"
+          ],
+          "as_of": "2025"
+        },
+        {
+          "type": "callout",
+          "tone": "caution",
+          "text": "The $18 million savings figure is management guidance from 2024, not a reported result [F005]."
+        }
+      ],
+      "takeaway": "Unit cost fell by a quarter while delivery speed rose fourfold [F002, F004]."
+    },
+    {
+      "title": "Industry context",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Northwind's direction matches the wider market: a 2026 survey found that most platform teams now run AI inference on Kubernetes [F003]."
+        },
+        {
+          "type": "chart",
+          "chart": {
+            "kind": "bar",
+            "title": "AI workloads run on Kubernetes",
+            "units": "% of surveyed organisations (n = 1,240)",
+            "labels": [
+              "Production inference",
+              "Model training",
+              "GPU sharing"
+            ],
+            "series": [
+              {
+                "name": "Share",
+                "values": [
+                  61,
+                  38,
+                  22
+                ]
+              }
+            ]
+          },
+          "finding_ids": [
+            "F003"
+          ],
+          "as_of": "2026-04"
+        },
+        {
+          "type": "metrics",
+          "title": "Survey at a glance",
+          "metrics": [
+            {
+              "value": "1,240",
+              "label": "organisations surveyed",
+              "detail": "Fielded April 2026 [F003].",
+              "finding_ids": [
+                "F003"
+              ]
+            },
+            {
+              "value": "38%",
+              "label": "run training jobs on Kubernetes",
+              "detail": "",
+              "finding_ids": [
+                "F003"
+              ]
+            },
+            {
+              "value": "22%",
+              "label": "use GPU sharing",
+              "detail": "",
+              "finding_ids": [
+                "F003"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "subheading",
+          "text": "Programme timeline"
+        },
+        {
+          "type": "diagram",
+          "diagram": {
+            "kind": "timeline",
+            "title": "Migration milestones",
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Investor day sets savings target",
+                "detail": "Jun 2024"
+              },
+              {
+                "id": "b",
+                "label": "First services migrated",
+                "detail": "2024"
+              },
+              {
+                "id": "c",
+                "label": "85% of services migrated",
+                "detail": "Dec 2025"
+              },
+              {
+                "id": "d",
+                "label": "Savings target date",
+                "detail": "2027"
+              }
+            ]
+          },
+          "finding_ids": [
+            "F001",
+            "F005"
+          ]
+        }
+      ],
+      "takeaway": "Northwind's path matches where most platform teams are heading [F003]."
+    }
   ],
   "conclusion": [
     "The evidence supports a clear story: the migration is largely complete and unit costs have fallen [F001, F002]. What remains unproven is whether the 2027 savings estimate will be met [F005]."
+  ],
+  "metrics": [
+    {
+      "value": "85%",
+      "label": "of dispatch services on Kubernetes",
+      "detail": "By December 2025 [F001].",
+      "trend": "up",
+      "finding_ids": [
+        "F001"
+      ]
+    },
+    {
+      "value": "USD 0.31",
+      "label": "infrastructure cost per shipment",
+      "detail": "Down from USD 0.42 in 2023 [F002].",
+      "trend": "down",
+      "finding_ids": [
+        "F002"
+      ]
+    },
+    {
+      "value": "49",
+      "label": "deploys per week",
+      "detail": "Up from 12 per week in 2023 [F004].",
+      "trend": "up",
+      "finding_ids": [
+        "F004"
+      ]
+    },
+    {
+      "value": "61%",
+      "label": "of platform teams run inference on Kubernetes",
+      "detail": "Survey of 1,240 organisations, April 2026 [F003].",
+      "finding_ids": [
+        "F003"
+      ]
+    }
   ]
 }

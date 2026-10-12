@@ -10,9 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/riteshsonawane1372/boku/internal/agent"
 	"github.com/riteshsonawane1372/boku/internal/config"
 	"github.com/riteshsonawane1372/boku/internal/logx"
 	"github.com/riteshsonawane1372/boku/internal/run"
+	"github.com/riteshsonawane1372/boku/internal/scope"
+	"github.com/riteshsonawane1372/boku/prompts"
 )
 
 // newServer returns a server whose runs and reports live under a temp dir
@@ -180,5 +183,65 @@ func TestTail(t *testing.T) {
 	_ = f.Close()
 	if got := tail(p, &off, &partial); strings.Join(got, "|") != "three" {
 		t.Errorf("second tail = %v", got)
+	}
+}
+
+func TestScopeInterview(t *testing.T) {
+	s, h, _ := newServer(t)
+	call := func(t *testing.T, h http.Handler, method, url, body string, out any) int {
+		t.Helper()
+		w := do(h, method, url, body, "X-Boku", "1")
+		if out != nil && w.Code < 300 {
+			if err := json.Unmarshal(w.Body.Bytes(), out); err != nil {
+				t.Fatalf("%s %s: %v: %s", method, url, err, w.Body)
+			}
+		}
+		return w.Code
+	}
+	lib, err := prompts.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Expert = func(_ context.Context, cfg config.Config) (*scope.Expert, error) {
+		return &scope.Expert{Prompts: lib, Config: cfg, Agent: agent.Func(func(_ context.Context, task agent.Task) (agent.Result, error) {
+			out := `{"understanding":"A market view.","questions":[{"id":"q1","question":"Which region?","options":["EU","US"]}]}`
+			if task.ID == "scoper-brief" {
+				out = `{"topic":"Assess the EU EV charging market.","title":"EU EV charging","in_scope":["Public charging"]}`
+			}
+			return agent.Result{Output: json.RawMessage(out), Usage: agent.Usage{CostUSD: 0.04}}, nil
+		})}, nil
+	}
+	s.SaveScope = func(r *run.Run, rec scope.Record) error { return r.WriteJSON(scope.File, rec) }
+
+	var qs struct {
+		Questions []scope.Question `json:"questions"`
+		Cost      float64          `json:"cost_usd"`
+	}
+	if code := call(t, h, "POST", "/api/scope/questions", `{"topic":"EV charging market","mode":"short"}`, &qs); code != 200 || len(qs.Questions) != 1 || qs.Cost != 0.04 {
+		t.Fatalf("questions: code %d, %+v", code, qs)
+	}
+	var br struct {
+		Brief scope.Brief `json:"brief"`
+	}
+	body := `{"topic":"EV charging market","mode":"short","questions":[{"id":"q1","question":"Which region?","options":["EU","US"]}],"answers":[{"id":"q1","answer":"EU"}]}`
+	if code := call(t, h, "POST", "/api/scope/brief", body, &br); code != 200 || br.Brief.Topic != "Assess the EU EV charging market." {
+		t.Fatalf("brief: code %d, %+v", code, br)
+	}
+	if code := call(t, h, "POST", "/api/scope/questions", `{"topic":""}`, nil); code != 400 && code != 502 {
+		t.Errorf("empty topic: code %d", code)
+	}
+
+	// The interview is stored only with the topic it confirmed.
+	var created struct {
+		ID string `json:"id"`
+	}
+	run1 := `{"topic":"Assess the EU EV charging market.","mode":"short","scope":{"original_topic":"EV charging market","questions":[],"answers":[],"brief":{"topic":"Assess the EU EV charging market.","title":"t","in_scope":[]},"topic":"Assess the EU EV charging market.","cost_usd":0.08}}`
+	if code := call(t, h, "POST", "/api/runs", run1, &created); code != 202 {
+		t.Fatalf("create: code %d", code)
+	}
+	s.Wait()
+	dir, _ := s.runDir(created.ID)
+	if _, err := os.Stat(filepath.Join(dir, scope.File)); err != nil {
+		t.Errorf("scope.json not saved: %v", err)
 	}
 }

@@ -55,6 +55,12 @@ board", "step by step", "just the numbers"). Choose accordingly:
   ends with its last step). `executive_summary` is always required.
 - `layout`: `compact` for briefs, one-pagers and short answers (no cover page
   or contents; sections flow on), `full` for full reports.
+- `theme`: the visual template that suits the subject and audience.
+  `aurora` (indigo and violet gradient; technology, product, AI, anything
+  forward-looking), `meridian` (navy and teal, dark cover; markets, finance,
+  company and industry analysis), `ember` (warm orange; strategy, decisions,
+  case studies, briefs), `slate` (monochrome; policy, regulation, legal and
+  formal reviews).
 - Sections follow the shape: a comparison opens with its comparison table; a
   decision memo opens with the recommendation and the options; a timeline
   question is ordered chronologically.
@@ -91,14 +97,23 @@ say what the reader should take from it, not just that it exists.
 - `key_findings`: usually 4–7 items; `headline` is one declarative sentence
   with a number where one exists, `detail` one or two sentences with
   citations.
+- `metrics`: 3 or 4 headline numbers for the whole report, shown as tiles
+  under the executive summary and on the cover — the figures a reader
+  should remember. See Metrics below. Leave empty when the subject has no
+  honest headline numbers.
 - `sections`: follow the synthesis outline and build every visual it lists
   that the data supports. Each section has a short, plain title (no
-  numbering; the renderer numbers sections) and `blocks`:
+  numbering; the renderer numbers sections), a `takeaway` (the section's
+  point in one declarative sentence of at most 25 words, with its number
+  where one exists and a citation; it is printed under the heading and
+  becomes the slide headline) and `blocks`:
   - `paragraph` (`text`), `subheading` (`text`), `bullets` (`items`),
   - `callout` (`text`, optional `title`, `tone`: insight | caution | estimate | note | unverified)
     — at most one or two per section, for the point a skimming reader must
     not miss; use `estimate` for forecasts, `caution` for contested data and
     `unverified` for a point the fact checker could not verify.
+  - `metrics` (`metrics`, optional `title`) — 2 to 4 number tiles that open
+    a section built on a few figures; see Metrics below.
   - `table` — see below.
   - `chart` — see below.
   - `diagram` — see below.
@@ -122,6 +137,18 @@ different findings (`62% [F014]`). Every value must come from the cited
 findings. Use tables for multi-attribute comparisons, feature or maturity
 matrices, key-figure summaries and case outcomes; 3–12 rows, 2–6 columns.
 
+### Metrics
+
+A metric is {`value`, `label`, `detail`, optional `trend`, `finding_ids`}.
+`value` is the number with its unit in at most 18 characters ("USD 4.2bn",
+"62%", "3.4×", "1,240"); `label` says what it measures in a few words;
+`detail` gives the period, comparison or caveat in one short sentence with a
+citation; `trend` is `up`, `down` or `flat` when the number is a change.
+Metrics are checked like charts and **dropped** unless every number in
+`value` appears in the `claim` or `evidence` of a cited finding (only
+rescaling by thousands is accepted). Never put an estimate on a tile without
+saying so in `detail`.
+
 ### Charts
 
 `chart` = {`kind`, `title`, `units`, `labels`, `series` [{`name`, `values`}],
@@ -139,10 +166,19 @@ checked automatically and **dropped** unless all of these hold:
 Choose the form by the data:
 - `line`: one or more series over 4+ ordered periods; labels short ("2024",
   "Q3 2025", at most 14 characters).
+- `area`: a single series over ordered periods where the volume matters
+  (cumulative totals, capacity, spend); drawn from zero.
 - `column`: a few periods or categories (2–8), optionally 2–3 series side by
   side for comparison.
+- `stacked`: columns whose series are parts that add up to a meaningful
+  total per label (revenue by segment per year). Values must be
+  non-negative, and the parts must come from the same source and definition.
 - `bar`: ranked comparison across entities (3–15), sorted largest first;
   suits long labels.
+- `donut`: shares of one whole — exactly one series of 2 to 6 non-negative
+  parts that together make up the total (market share, budget split). Never
+  use it for overlapping categories or survey answers where respondents
+  could pick several; use `bar` for those.
 
 All series in one chart share one unit and one definition; never mix
 estimates from different firms in one series. Use at most 4 series. Use the

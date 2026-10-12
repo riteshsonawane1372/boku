@@ -1,10 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{.Theme}}">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="{{.Metadata.Generator}}">
 <title>{{.Metadata.Title}}</title>
 <style>
+{{fontface}}
+{{themecss}}
 {{css}}
 {{pagecss .Metadata}}
 </style>
@@ -21,11 +24,18 @@
 </header>
 {{else}}
 <section class="cover">
-  <div class="kicker">{{.Metadata.ReportType}}</div>
-  <div class="rule"></div>
-  <h1>{{.Metadata.Title}}</h1>
-  {{with .Metadata.Subtitle}}<div class="subtitle">{{.}}</div>{{end}}
+  <div class="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="cover-top">
+    <div class="kicker">{{.Metadata.ReportType}}</div>
+    <div class="issue">{{month .Metadata.Date}}</div>
+  </div>
+  <div class="cover-main">
+    <div class="rule"></div>
+    <h1>{{.Metadata.Title}}</h1>
+    {{with .Metadata.Subtitle}}<div class="subtitle">{{.}}</div>{{end}}
+  </div>
   <div class="spacer"></div>
+  {{if .Metrics}}<div class="cover-metrics">{{range .Metrics}}<div><b>{{.Value}}</b><span>{{.Label}}</span></div>{{end}}</div>{{end}}
   <div class="meta">
     <div><span>Published</span>{{month .Metadata.Date}}</div>
     <div><span>Evidence base</span>{{len .Sources}} cited sources</div>
@@ -38,12 +48,12 @@
   <div class="eyebrow">Contents</div>
   <h1>In this report</h1>
   <ol>
-    <li><span class="n"></span><a href="#executive-summary">{{.Labels.Summary}}</a></li>
-    {{if .KeyFindings}}<li><span class="n"></span><a href="#key-findings">{{.Labels.KeyFindings}}</a></li>{{end}}
-    {{range .Sections}}<li><span class="n">{{two .Number}}</span><a href="#section-{{.Number}}">{{.Title}}</a></li>
+    <li><span class="n">—</span><a href="#executive-summary">{{.Labels.Summary}}</a></li>
+    {{if .KeyFindings}}<li><span class="n">—</span><a href="#key-findings">{{.Labels.KeyFindings}}</a></li>{{end}}
+    {{range .Sections}}<li class="major"><span class="n">{{two .Number}}</span><a href="#section-{{.Number}}">{{.Title}}{{with .Takeaway}}<small>{{plain .}}</small>{{end}}</a></li>
     {{end}}
-    {{if .Conclusion}}<li><span class="n"></span><a href="#conclusion">{{.Labels.Conclusion}}</a></li>{{end}}
-    {{if .IncludeReferences}}<li><span class="n"></span><a href="#sources">Sources</a></li>{{end}}
+    {{if .Conclusion}}<li><span class="n">—</span><a href="#conclusion">{{.Labels.Conclusion}}</a></li>{{end}}
+    {{if .IncludeReferences}}<li><span class="n">—</span><a href="#sources">Sources</a></li>{{end}}
     {{range $i, $a := .Appendices}}<li class="minor"><span class="n">{{letter $i}}</span><a href="#appendix-{{letter $i}}">{{$a.Title}}</a></li>
     {{end}}
   </ol>
@@ -57,6 +67,7 @@
   {{range .ExecutiveSummary}}<p>{{inline .Text}}</p>
   {{end}}
   </div>
+  {{with .Metrics}}{{template "metrics" .}}{{end}}
   {{if .Unverified}}<aside class="callout unverified"><div class="label">Not verified by fact-check</div><p>The fact checker could not verify the following. Treat any statement in this report that touches on them as unconfirmed.</p><ul>{{range .Unverified}}<li>{{.}}</li>{{end}}</ul></aside>{{end}}
 </section>
 
@@ -74,8 +85,9 @@
 
 {{range .Sections}}
 <section class="chapter" id="section-{{.Number}}">
-  <div class="eyebrow">{{two .Number}} —</div>
+  <div class="eyebrow"><b>{{two .Number}}</b> Section</div>
   <h1>{{.Title}}</h1>
+  {{with .Takeaway}}<p class="takeaway">{{inline .}}</p>{{end}}
   {{template "blocks" .Blocks}}
 </section>
 {{end}}
@@ -98,7 +110,7 @@
   <ol class="sources">
   {{range .Sources}}
     <li id="src-{{.Number}}">
-      <div class="n">[{{.Number}}]</div>
+      <div class="n">{{.Number}}</div>
       <div>
         <div class="title">{{.Title}}</div>
         <div class="meta">{{with .Publisher}}{{.}} · {{end}}{{with date .Published}}Published {{.}} · {{end}}Accessed {{day .Accessed}} · {{.TierLabel}}</div>
@@ -121,18 +133,29 @@
 </body>
 </html>
 
+{{define "metrics"}}
+<div class="metrics n{{len .}}">
+  {{range .}}<div class="metric{{with .Trend}} {{.}}{{end}}">
+    <div class="value">{{.Value}}{{with trend .Trend}}<i>{{.}}</i>{{end}}</div>
+    <div class="name">{{.Label}}</div>
+    {{with .Detail}}<div class="detail">{{inline .}}</div>{{end}}
+  </div>{{end}}
+</div>
+{{end}}
+
 {{define "blocks"}}
 {{range .}}
   {{if eq .Type "subheading"}}<h2>{{.Text}}</h2>
   {{else if eq .Type "paragraph"}}<p>{{inline .Text}}</p>
   {{else if eq .Type "bullets"}}<ul class="bullets">{{range .Items}}<li>{{inline .}}</li>{{end}}</ul>
   {{else if eq .Type "callout"}}<aside class="callout {{.Tone}}"><div class="label">{{calloutLabel .}}</div><p>{{inline .Text}}</p></aside>
+  {{else if eq .Type "metrics"}}{{with .Title}}<div class="metrics-title">{{.}}</div>{{end}}{{template "metrics" .Metrics}}
   {{else if eq .Type "table"}}
   <figure class="table">
     <div class="caption"><span class="label">Table {{.Number}}</span>{{.Title}}</div>
     <table{{if eq .Title "Cited findings"}} class="register"{{end}}>
-      <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
-      <tbody>{{range .Rows}}<tr>{{range .}}<td>{{inline .}}</td>{{end}}</tr>{{end}}</tbody>
+      <thead><tr>{{range .Columns}}<th>{{breakLong .}}</th>{{end}}</tr></thead>
+      <tbody>{{range .Rows}}<tr>{{range .}}<td>{{cell .}}</td>{{end}}</tr>{{end}}</tbody>
     </table>
     {{with sources .}}<div class="source-line">{{.}}</div>{{end}}
   </figure>

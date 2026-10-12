@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
@@ -13,22 +12,29 @@ import (
 //	architecture  layered graph, top to bottom
 //	process       layered graph, left to right
 //	timeline      nodes in order along a horizontal axis
-func DiagramSVG(d *report.Diagram) string {
-	if d == nil || len(d.Nodes) == 0 {
+func DiagramSVG(d *report.Diagram, th Theme) string {
+	cv := diagramCanvas(d, th)
+	if cv == nil {
 		return ""
 	}
-	if d.Kind == "timeline" {
-		return timeline(d)
+	return cv.SVG()
+}
+
+// diagramCanvas draws a diagram; nil when there is nothing to draw.
+func diagramCanvas(d *report.Diagram, th Theme) *canvas {
+	if d == nil || len(d.Nodes) == 0 {
+		return nil
 	}
-	return layered(d, d.Kind == "architecture")
+	if d.Kind == "timeline" {
+		return timeline(d, th)
+	}
+	return layered(d, th, d.Kind == "architecture")
 }
 
 const (
-	nodeW, nodeH = 150.0, 48.0
-	nodeFont     = 10.0
+	nodeW, nodeH = 156.0, 52.0
+	nodeFont     = 11.0
 )
-
-var groupFills = []string{"#e7eef6", "#f2f4f7", "#eef3ea", "#fbf4e7", "#f3eef6", "#e9f3f3"}
 
 // layers assigns each node a layer by longest path from a source. Cycles are
 // broken by ignoring edges that point back to a node already on the stack.
@@ -76,7 +82,7 @@ type placed struct {
 	x, y float64 // centre
 }
 
-func layered(d *report.Diagram, vertical bool) string {
+func layered(d *report.Diagram, th Theme, vertical bool) *canvas {
 	layer := layers(d)
 	byLayer := map[int][]report.Node{}
 	maxLayer := 0
@@ -90,9 +96,9 @@ func layered(d *report.Diagram, vertical bool) string {
 		widest = max(widest, len(ns))
 	}
 
-	gapMain, gapCross := 46.0, 22.0
+	gapMain, gapCross := 50.0, 22.0
 	if vertical {
-		gapMain = 40
+		gapMain = 42
 	}
 	var W, H float64
 	pos := map[string]placed{}
@@ -120,7 +126,7 @@ func layered(d *report.Diagram, vertical bool) string {
 	groups := groupIndex(d.Nodes)
 	legendH := 0.0
 	if len(groups) > 1 {
-		legendH = 22
+		legendH = 26
 	}
 	// Keep small diagrams from being blown up to full width.
 	minW := 560.0
@@ -130,10 +136,8 @@ func layered(d *report.Diagram, vertical bool) string {
 		W = minW
 	}
 
-	var s svgBuf
-	s.f(`<svg class="diagram" viewBox="0 0 %.0f %.0f" xmlns="http://www.w3.org/2000/svg" role="img">`, W, H+legendH)
-	s.f(`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="%s"/></marker></defs>`, colMuted)
-	s.f(`<g transform="translate(%.1f,0)">`, offX)
+	cv := newCanvas("diagram", W, H+legendH)
+	edge := mix(th.Muted, "#ffffff", 0.15)
 	for _, e := range d.Edges {
 		a, b := pos[e.From], pos[e.To]
 		var x1, y1, x2, y2 float64
@@ -148,20 +152,18 @@ func layered(d *report.Diagram, vertical bool) string {
 				x1, x2 = a.x-nodeW/2, b.x+nodeW/2
 			}
 		}
-		var path string
-		if vertical {
-			my := (y1 + y2) / 2
-			path = fmt.Sprintf("M%.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f", x1, y1, x1, my, x2, my, x2, y2)
-		} else {
-			mx := (x1 + x2) / 2
-			path = fmt.Sprintf("M%.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f", x1, y1, mx, y1, mx, y2, x2, y2)
+		x1, x2 = x1+offX, x2+offX
+		c1, c2 := pt{x1, (y1 + y2) / 2}, pt{x2, (y1 + y2) / 2}
+		if !vertical {
+			c1, c2 = pt{(x1 + x2) / 2, y1}, pt{(x1 + x2) / 2, y2}
 		}
-		s.f(`<path d="%s" fill="none" stroke="%s" stroke-width="1.1" marker-end="url(#arrow)"/>`, path, colMuted)
+		cv.curve(pt{x1, y1}, c1, c2, pt{x2, y2}, edge, 1.3).arrow = true
 		if e.Label != "" {
 			lx, ly := (x1+x2)/2, (y1+y2)/2
-			lw := textWidth(e.Label, 8.5) + 8
-			s.f(`<rect x="%.1f" y="%.1f" width="%.1f" height="13" fill="#ffffff"/>`, lx-lw/2, ly-8, lw)
-			s.text(lx, ly+2.5, "middle", colMuted, 8.5, 400, truncateRunes(e.Label, 28))
+			label := truncateRunes(e.Label, 28)
+			lw := textWidth(label, 9.5) + 10
+			cv.rect(lx-lw/2, ly-8.5, lw, 15, 4, "#ffffff")
+			cv.text(lx, ly+2.8, "middle", th.Muted, 9.5, 500, label)
 		}
 	}
 	ids := make([]string, 0, len(pos))
@@ -171,21 +173,23 @@ func layered(d *report.Diagram, vertical bool) string {
 	sort.Strings(ids)
 	for _, id := range ids {
 		p := pos[id]
-		fill := groupFills[groups[p.Group]%len(groupFills)]
-		s.f(`<rect x="%.1f" y="%.1f" width="%.0f" height="%.0f" rx="3" fill="%s" stroke="%s" stroke-width="0.9"/>`,
-			p.x-nodeW/2, p.y-nodeH/2, nodeW, nodeH, fill, "#0d3b66")
-		lines := wrap(p.Label, nodeW-14, nodeFont, 2)
+		col := th.series(groups[p.Group])
+		x := p.x + offX
+		box := cv.rect(x-nodeW/2, p.y-nodeH/2, nodeW, nodeH, 9, mix(col, "#ffffff", 0.9))
+		box.stroke, box.sw = mix(col, "#ffffff", 0.45), 1.1
+		cv.rect(x-nodeW/2+7, p.y-nodeH/2+11, 3.5, nodeH-22, 1.75, col)
+		lines := wrap(p.Label, nodeW-30, nodeFont, 2)
+		tx := x + 4
 		if p.Detail != "" && len(lines) == 1 {
-			s.text(p.x, p.y-2, "middle", colInk, nodeFont, 600, lines[0])
-			s.text(p.x, p.y+11, "middle", colMuted, 8.5, 400, truncateRunes(p.Detail, 26))
+			cv.text(tx, p.y-2, "middle", th.Ink, nodeFont, 600, lines[0])
+			cv.text(tx, p.y+12, "middle", th.Muted, 9.5, 400, truncateRunes(p.Detail, 26))
 			continue
 		}
-		startY := p.y + 3.5 - float64(len(lines)-1)*6
+		startY := p.y + 4 - float64(len(lines)-1)*6.5
 		for k, line := range lines {
-			s.text(p.x, startY+float64(k)*12, "middle", colInk, nodeFont, 600, line)
+			cv.text(tx, startY+float64(k)*13, "middle", th.Ink, nodeFont, 600, line)
 		}
 	}
-	s.f(`</g>`)
 	if len(groups) > 1 {
 		x := 10.0
 		names := make([]string, len(groups))
@@ -196,13 +200,12 @@ func layered(d *report.Diagram, vertical bool) string {
 			if g == "" {
 				g = "Other"
 			}
-			s.f(`<rect x="%.1f" y="%.1f" width="10" height="10" fill="%s" stroke="#0d3b66" stroke-width="0.6"/>`, x, H+6, groupFills[i%len(groupFills)])
-			s.text(x+14, H+14.5, "start", colMuted, 9, 400, g)
-			x += 14 + textWidth(g, 9) + 18
+			cv.rect(x, H+8, 10, 10, 3, th.series(i))
+			cv.text(x+15, H+17, "start", th.Muted, 10, 500, g)
+			x += 15 + textWidth(g, 10) + 20
 		}
 	}
-	s.f(`</svg>`)
-	return s.String()
+	return cv
 }
 
 // groupIndex numbers groups in order of first appearance.
@@ -216,52 +219,51 @@ func groupIndex(nodes []report.Node) map[string]int {
 	return idx
 }
 
-func timeline(d *report.Diagram) string {
+func timeline(d *report.Diagram, th Theme) *canvas {
 	n := len(d.Nodes)
 	const W = 640.0
-	const H = 170.0
-	left, right := 50.0, 50.0
+	const H = 190.0
+	left, right := 56.0, 56.0
 	axisY := H / 2
 	step := 0.0
 	if n > 1 {
 		step = (W - left - right) / float64(n-1)
 	}
-	slot := math.Max(step*2-12, 90)
-	var s svgBuf
-	s.f(`<svg class="diagram" viewBox="0 0 %.0f %.0f" xmlns="http://www.w3.org/2000/svg" role="img">`, W, H)
-	s.f(`<line x1="%.1f" x2="%.1f" y1="%.1f" y2="%.1f" stroke="%s" stroke-width="1.4"/>`, left-20, W-right+20, axisY, axisY, colInk)
+	slot := math.Max(step*2-14, 96)
+	cv := newCanvas("diagram", W, H)
+	cv.line(left-24, axisY, W-right+24, axisY, th.Rule, 2.4)
 	for i, node := range d.Nodes {
 		x := left + float64(i)*step
 		if n == 1 {
 			x = W / 2
 		}
 		above := i%2 == 0
-		s.f(`<circle cx="%.1f" cy="%.1f" r="4.5" fill="#0d3b66"/>`, x, axisY)
-		dir := -1.0
-		if !above {
-			dir = 1
-		}
-		s.f(`<line x1="%.1f" x2="%.1f" y1="%.1f" y2="%.1f" stroke="%s" stroke-width="0.8"/>`, x, x, axisY+dir*6, axisY+dir*22, colAxis)
-		lines := wrap(node.Label, slot, 9.5, 2)
+		dir := 1.0
 		if above {
-			y := axisY - 28 - float64(len(lines)-1)*11
+			dir = -1
+		}
+		cv.line(x, axisY+dir*8, x, axisY+dir*24, th.Rule, 1.2)
+		dot := cv.circle(x, axisY, 5.5, th.Accent)
+		dot.stroke, dot.sw = "#ffffff", 2
+		lines := wrap(node.Label, slot, 10.5, 2)
+		if above {
+			y := axisY - 32 - float64(len(lines)-1)*12.5
 			if node.Detail != "" {
-				s.text(x, y-13, "middle", "#0d3b66", 8.5, 700, node.Detail)
+				cv.text(x, y-15, "middle", th.Accent, 9.5, 700, node.Detail)
 			}
 			for k, line := range lines {
-				s.text(x, y+float64(k)*11, "middle", colInk, 9.5, 500, line)
+				cv.text(x, y+float64(k)*12.5, "middle", th.Ink, 10.5, 500, line)
 			}
 		} else {
-			y := axisY + 36
+			y := axisY + 40
 			if node.Detail != "" {
-				s.text(x, y, "middle", "#0d3b66", 8.5, 700, node.Detail)
-				y += 13
+				cv.text(x, y, "middle", th.Accent, 9.5, 700, node.Detail)
+				y += 15
 			}
 			for k, line := range lines {
-				s.text(x, y+float64(k)*11, "middle", colInk, 9.5, 500, line)
+				cv.text(x, y+float64(k)*12.5, "middle", th.Ink, 10.5, 500, line)
 			}
 		}
 	}
-	s.f(`</svg>`)
-	return s.String()
+	return cv
 }

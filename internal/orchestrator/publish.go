@@ -82,6 +82,16 @@ func (o *Orchestrator) stageRender(ctx context.Context, st *state) (*Outcome, er
 			staged["html"] = st.run.Path("report", "report.html")
 		case "md":
 			staged["md"] = st.run.Path("report", "report.md")
+		case "pptx":
+			deck, err := render.PPTX(r)
+			if err != nil {
+				return nil, err
+			}
+			if err := st.run.WriteFile(filepath.Join("output", slug+".pptx"), deck); err != nil {
+				return nil, err
+			}
+			o.Log.Info("deck rendered", "size", fmt.Sprintf("%.0f KB", float64(len(deck))/1024))
+			staged["pptx"] = st.run.Path("output", slug+".pptx")
 		case "pdf":
 			pdf := st.run.Path("output", slug+".pdf")
 			if o.Printer == nil {

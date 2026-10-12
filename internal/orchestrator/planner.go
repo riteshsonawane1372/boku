@@ -10,6 +10,7 @@ import (
 	"github.com/riteshsonawane1372/boku/internal/agent"
 	"github.com/riteshsonawane1372/boku/internal/config"
 	"github.com/riteshsonawane1372/boku/internal/run"
+	"github.com/riteshsonawane1372/boku/internal/scope"
 )
 
 // Plan is the planner's output (prompts/schemas/planner.json).
@@ -95,6 +96,17 @@ func (o *Orchestrator) stagePlan(ctx context.Context, st *state) (string, error)
 			tools = append(append([]string{}, codeTools...), agent.ToolWebSearch)
 			inputs = []agent.Artifact{{Name: "repository overview", Content: o.repoOverview(ctx, st)}}
 			cons = append(cons, "The subject is the repository in your working directory (see the repository overview). Skim its entry points and documentation with Read, Glob and Grep to plan the workstreams; leave the detailed reading to them.")
+		}
+		// A request refined in a scoping interview carries the requester's
+		// answers; the plan must honour them.
+		var interview scope.Record
+		if ok, err := st.run.ReadJSON(scope.File, &interview); err != nil {
+			return "", err
+		} else if ok {
+			inputs = append(inputs, agent.Artifact{Name: "scoping interview", Content: scope.Transcript(interview.Questions, interview.Answers) +
+				"In scope: " + strings.Join(interview.Brief.InScope, "; ") + "\nOut of scope: " + strings.Join(interview.Brief.OutOfScope, "; ") +
+				"\nAssumptions: " + strings.Join(interview.Brief.Assumptions, "; ") + "\n"})
+			cons = append(cons, "The requester confirmed this request after a scoping interview (see input). Plan exactly that scope: honour every answer, leave out what is listed as out of scope, and do not reopen settled questions.")
 		}
 		if len(o.Config.Research.Sources) > 0 {
 			cons = append(cons, "The requester suggests these sources or source types: "+strings.Join(o.Config.Research.Sources, "; ")+".")
